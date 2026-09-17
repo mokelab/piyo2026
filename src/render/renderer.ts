@@ -7,6 +7,8 @@ import type { WorldView } from "../sim/world";
 const TEXTURE_RADIUS = 16;
 /** ボス画像の表示サイズ（論理 px） */
 const BOSS_SIZE = 96;
+/** ぴよの塗り色。画像は白塗り＋黒線なので tint で白い部分だけ色が付く。 */
+const PLAYER_COLOR = 0xffd83a;
 
 /** ワールドの状態を PixiJS で描画する。シミュレーションには一切書き込まない。 */
 export class Renderer {
@@ -30,7 +32,7 @@ export class Renderer {
 
     // ドット絵なので補間せずに拡大縮小する
     playerTexture.source.scaleMode = "nearest";
-    this.playerSprite = new Sprite({ texture: playerTexture, anchor: 0.5 });
+    this.playerSprite = new Sprite({ texture: playerTexture, anchor: 0.5, tint: PLAYER_COLOR });
     // 当たり判定は見た目より小さいので、中心に判定点を重ねて表示する
     const hitbox = new Graphics()
       .circle(0, 0, 4)
