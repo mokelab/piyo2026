@@ -1,7 +1,7 @@
 import { aiDefinitions, findAI } from "./ai/registry";
 import type { DodgeAI } from "./ai/types";
 import { Renderer } from "./render/renderer";
-import { demoStage } from "./sim/patterns/basic";
+import { demoPatternIds, demoStageFrom } from "./sim/patterns/basic";
 import { World } from "./sim/world";
 
 const WIDTH = 480;
@@ -20,7 +20,12 @@ async function main(): Promise<void> {
   const selectEl = document.getElementById("ai-select") as HTMLSelectElement;
 
   const world = new World({ width: WIDTH, height: HEIGHT, seed });
-  world.spawn(demoStage);
+  // ?pattern=<id> で最初に流すパターンを固定する（パターン確認用）
+  const startPattern = params.get("pattern");
+  if (startPattern !== null && !demoPatternIds.includes(startPattern)) {
+    console.warn(`unknown pattern "${startPattern}". available: ${demoPatternIds.join(", ")}`);
+  }
+  world.spawn(demoStageFrom(startPattern));
 
   let aiDef = findAI(params.get("ai"));
   let ai: DodgeAI = aiDef.create();

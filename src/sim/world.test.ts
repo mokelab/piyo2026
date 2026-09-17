@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BulletPool } from "./bullets";
 import type { Pattern } from "./pattern";
-import { demoStage } from "./patterns/basic";
+import { demoStage, demoStageFrom } from "./patterns/basic";
 import { World } from "./world";
 
 const style = { radius: 4, color: 0xffffff };
@@ -60,6 +60,15 @@ describe("World", () => {
     world.step({ dx: 0, dy: 0 });
     world.step({ dx: 0, dy: 0 });
     expect(world.enemies).toEqual([]);
+  });
+
+  it("demoStageFrom で指定したパターンから始まる", () => {
+    const world = new World({ width: 480, height: 640, seed: 1 });
+    world.spawn(demoStageFrom("sideSpiralEnemies"));
+    // spawn したサブパターンは次のフレームから動く
+    world.step({ dx: 0, dy: 0 });
+    world.step({ dx: 0, dy: 0 });
+    expect(world.enemies.length).toBe(2);
   });
 
   it("移動指示は長さ 1 に正規化される", () => {

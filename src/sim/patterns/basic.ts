@@ -138,21 +138,32 @@ export const together = (...patterns: Pattern[]): Pattern =>
     yield* patterns[0](ctx);
   };
 
-/** サンプルステージ: ボスを揺らしつつ、パターンを順番に無限ループ */
-export const demoStage: Pattern = function* (ctx) {
-  ctx.spawn(bossSway);
-  for (;;) {
-    yield* spiral(600)(ctx);
-    yield 60;
-    yield* aimedFan(480)(ctx);
-    yield 60;
-    yield* flowerRings(600)(ctx);
-    yield 60;
-    yield* doubleScatteredRings(600)(ctx);
-    yield 60;
-    yield* sideSpiralEnemies(600)(ctx);
-    yield 60;
-    yield* together(spiral(600, 3), rain(600))(ctx);
-    yield 90;
-  }
-};
+/** サンプルステージで順番に流すパターン。id は URL の ?pattern= で指定する。 */
+const demoSteps: { id: string; pattern: Pattern; rest: number }[] = [
+  { id: "spiral", pattern: spiral(600), rest: 60 },
+  { id: "aimedFan", pattern: aimedFan(480), rest: 60 },
+  { id: "flowerRings", pattern: flowerRings(600), rest: 60 },
+  { id: "doubleScatteredRings", pattern: doubleScatteredRings(600), rest: 60 },
+  { id: "sideSpiralEnemies", pattern: sideSpiralEnemies(600), rest: 60 },
+  { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
+];
+
+export const demoPatternIds: readonly string[] = demoSteps.map((step) => step.id);
+
+/**
+ * サンプルステージ: ボスを揺らしつつ、パターンを順番に無限ループ。
+ * startId を渡すとそのパターンから始める（見つからなければ先頭から）。
+ */
+export const demoStageFrom = (startId?: string | null): Pattern =>
+  function* (ctx) {
+    ctx.spawn(bossSway);
+    let i = Math.max(0, demoSteps.findIndex((step) => step.id === startId));
+    for (;;) {
+      const step = demoSteps[i];
+      yield* step.pattern(ctx);
+      yield step.rest;
+      i = (i + 1) % demoSteps.length;
+    }
+  };
+
+export const demoStage: Pattern = demoStageFrom();
