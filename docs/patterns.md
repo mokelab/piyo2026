@@ -10,6 +10,7 @@
 | `spiral` | 腕が複数ある渦巻き。速い弾が正回転、遅い弾が 1.3 倍の速さで逆回転していて、二重の渦になっている | `doubleSpiral`（または `counterSpiral`） | ぐるぐる二重渦 |
 | `aimedFan` | 自機を狙った 7 方向の弾を、速さを変えながら 5 回続けて撃つ。狙った方向にくさび状の塊が飛ぶ | `aimedFanBurst`（または `aimedWedge`） | 狙い撃ち扇連弾 |
 | `flowerRings` | ボスの近くのランダムな場所から、36 発の全方位リングを撃つ | `scatteredRings` | 咲き散らしリング |
+| `doubleScatteredRings` | `flowerRings` の 2 重版。速さ 2.0 と 1.2 のリングを、内側を半コマずらして同じ場所から撃つ（30 発 × 2、32 フレーム間隔） | `doubleScatteredRings`（命名方針に沿って追加済み） | 咲き散らし二重リング |
 | `rain` | 画面上端のランダムな位置から、少しばらけながら弾が降る | `rain`（揃えるなら `randomRain`） | ひよこ雨 |
 
 攻撃パターン以外のもの:

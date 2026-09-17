@@ -58,6 +58,25 @@ export const flowerRings = (frames: number): Pattern =>
     }
   };
 
+/** ボスの周囲の位置をずらしながら、速さの違う全方位リングを2重に撃つ */
+export const doubleScatteredRings = (frames: number): Pattern =>
+  function* (ctx) {
+    const n = 30;
+    const interval = 32;
+    for (let f = 0; f < frames; f += interval) {
+      const cx = ctx.boss.x + ctx.rng.range(-100, 100);
+      const cy = ctx.boss.y + ctx.rng.range(-40, 60);
+      const offset = ctx.rng.next() * TAU;
+      for (let i = 0; i < n; i++) {
+        const angle = offset + (i / n) * TAU;
+        ctx.fire(cx, cy, angle, 2.0, { radius: 4, color: 0xffcc55 });
+        // 内側のリングは半コマずらして外側の隙間に置く
+        ctx.fire(cx, cy, angle + Math.PI / n, 1.2, { radius: 4, color: 0xff9955 });
+      }
+      yield interval;
+    }
+  };
+
 /** 上から降るばらまき弾 */
 export const rain = (frames: number): Pattern =>
   function* (ctx) {
@@ -85,6 +104,8 @@ export const demoStage: Pattern = function* (ctx) {
     yield* aimedFan(480)(ctx);
     yield 60;
     yield* flowerRings(600)(ctx);
+    yield 60;
+    yield* doubleScatteredRings(600)(ctx);
     yield 60;
     yield* together(spiral(600, 3), rain(600))(ctx);
     yield 90;
