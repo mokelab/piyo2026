@@ -2,10 +2,10 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>piyo2026</title>
-    <style>html,body{color:#cfd6e6;background:#05060a;height:100%;margin:0;font-family:system-ui,sans-serif}#app{justify-content:center;align-items:center;height:100%;display:flex}#stage{position:relative;container-type:size}#stage canvas{display:block;width:100%!important;height:100%!important}#hud{white-space:pre;pointer-events:none;text-shadow:0 0 4px #000;font-size:12px;line-height:1.5;position:absolute;top:8px;left:8px}#controls{font-size:12px;position:absolute;top:8px;right:8px}#controls select{font-size:12px}#title{background:#05060ab3;flex-direction:column;justify-content:center;align-items:center;gap:8cqh;display:flex;position:absolute;inset:0}#title[hidden]{display:none}#title h1{letter-spacing:.04em;color:#fff;text-shadow:0 0 2cqw #fc3;margin:0;font-size:14cqw}#title button{font:inherit;color:#fff;cursor:pointer;background:0 0;border:2px solid #cfd6e6;border-radius:999px;padding:1.5cqw 8cqw;font-size:5cqw}#title button:hover,#title button:focus-visible{color:#05060a;background:#cfd6e6;outline:none}</style>
-    <script type="module" crossorigin src="./assets/index-Dp1KbXxi.js"></script>
+    <style>html,body{color:#cfd6e6;background:#05060a;height:100%;margin:0;font-family:system-ui,sans-serif}#app{justify-content:center;align-items:center;height:100%;display:flex}#stage{position:relative;container-type:size}#stage canvas{display:block;width:100%!important;height:100%!important}#hud{white-space:pre;pointer-events:none;text-shadow:0 0 4px #000;font-size:12px;line-height:1.5;position:absolute;top:8px;left:8px}#touch{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;position:absolute;inset:0}#touch[hidden],#controls[hidden]{display:none}#controls{font-size:12px;position:absolute;top:8px;right:8px}#controls select{font-size:12px}#title,#gameover{background:#05060ab3;flex-direction:column;justify-content:center;align-items:center;gap:8cqh;display:flex;position:absolute;inset:0}#title[hidden],#gameover[hidden]{display:none}#title h1,#gameover h1{letter-spacing:.04em;color:#fff;text-shadow:0 0 2cqw #fc3;margin:0;font-size:14cqw}#title label{flex-direction:column;align-items:center;gap:1.5cqh;font-size:4cqw;display:flex}#title select{font:inherit;color:#fff;background:#05060a;border:2px solid #cfd6e6;border-radius:1.5cqw;padding:1cqw 2cqw;font-size:4.5cqw}#gameover p{text-align:center;white-space:pre;margin:0;font-size:4cqw;line-height:1.6}#gameover .buttons{gap:4cqw;display:flex}#title button,#gameover button{font:inherit;color:#fff;cursor:pointer;background:0 0;border:2px solid #cfd6e6;border-radius:999px;padding:1.5cqw 8cqw;font-size:5cqw}#title button:hover,#title button:focus-visible,#gameover button:hover,#gameover button:focus-visible{color:#05060a;background:#cfd6e6;outline:none}</style>
+    <script type="module" crossorigin src="./assets/index-DU8TYVtv.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/Geometry-CZGVBKwE.js">
     <link rel="modulepreload" crossorigin href="./assets/Filter-UNTOye90.js">
     <link rel="modulepreload" crossorigin href="./assets/canvasUtils-BwcAxi36.js">
@@ -20,13 +20,23 @@
   <body>
     <div id="app">
       <div id="stage">
+        <div id="touch" hidden></div>
         <div id="hud"></div>
         <div id="controls">
           <label>AI <select id="ai-select"></select></label>
         </div>
         <div id="title" hidden>
           <h1>Piyo 2026</h1>
+          <label>操作<select id="title-ai-select"></select></label>
           <button id="start-button" type="button">Start</button>
+        </div>
+        <div id="gameover" hidden>
+          <h1>GAME OVER</h1>
+          <p id="gameover-result"></p>
+          <div class="buttons">
+            <button id="retry-button" type="button">Retry</button>
+            <button id="title-button" type="button">Title</button>
+          </div>
         </div>
       </div>
     </div>
