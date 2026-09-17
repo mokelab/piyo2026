@@ -24,7 +24,24 @@
 - `bossSway`: ボスを左右にゆっくり揺らす動き。`BossMotion` の `swaying` を false にすると止まり、戻すとなめらかに揺れへ戻る
 - `together`: 複数のパターンを同時に走らせる
 - `togetherRandomPick`: 基本のパターンと、候補から 1 つ抽選したパターンを同時に走らせる
-- `demoStage`: 上のパターンを順番に無限ループするサンプルステージ
+- `demoStage`: 上のパターンを難易度グループ順に流すサンプルステージ（下の「難易度グループ」参照）
+
+## 難易度グループ
+
+`difficultyGroups` でパターンを難易度ごとに分けている。各グループからパターンを重複なしで `CLEARS_PER_GROUP`（3）個選んで撃ち、全部流し切ったら次のグループへ進む。被弾しても流し切ればクリアとする。最後のグループの後は次の周として最初のグループに戻る。
+
+周を重ねるごとに弾速を上げる。倍率は `1 + 0.15 × (周 - 1)` で、上限は 1.6 倍（5 周目で上限に届く）。ステージが `ctx.bulletSpeedScale` を書き換え、`fire` で撃つ弾と破裂の子弾の速さに掛かる。撃つ間隔や `aimAfter` / `burst.after` のフレーム数は変えないので、速い周では弾が遠くまで飛んでから向きを変えたり破裂したりする。
+
+| グループ | パターン |
+|---|---|
+| `easy` | `spiral` / `aimedFan` / `flowerRings` |
+| `normal` | `doubleScatteredRings` / `delayedAimScatteredRings` / `burstingRings` / `sideSpiralEnemies` / `centerRandomPick` |
+| `hard` | `evenFanStreamWithAimedShot` / `spiralRain` / `evenFanRandomMix` |
+
+未決事項:
+
+- クリア条件をノーミス（または被弾数の上限つき）にするか
+- 弾速だけでなく密度（撃つ間隔）も周ごとに上げるか
 
 ## 命名方針
 

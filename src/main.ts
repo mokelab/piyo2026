@@ -1,7 +1,7 @@
 import { aiDefinitions, findAI } from "./ai/registry";
 import type { DodgeAI } from "./ai/types";
 import { Renderer } from "./render/renderer";
-import { demoPatternIds, demoStageFrom } from "./sim/patterns/basic";
+import { demoPatternIds, demoStageFrom, difficultyGroupIds, type StageProgress } from "./sim/patterns/basic";
 import { World } from "./sim/world";
 
 const WIDTH = 480;
@@ -25,7 +25,15 @@ async function main(): Promise<void> {
   if (startPattern !== null && !demoPatternIds.includes(startPattern)) {
     console.warn(`unknown pattern "${startPattern}". available: ${demoPatternIds.join(", ")}`);
   }
-  world.spawn(demoStageFrom(startPattern));
+  // ?group=<id> で最初の難易度グループを固定する（?pattern= があればそちらを優先）
+  const startGroup = params.get("group");
+  if (startGroup !== null && !difficultyGroupIds.includes(startGroup)) {
+    console.warn(`unknown group "${startGroup}". available: ${difficultyGroupIds.join(", ")}`);
+  }
+  // ?loop=<n> で n 周目（1 始まり）から始める。周を重ねるほど弾が速い
+  const startLoop = Number(params.get("loop") ?? 1) - 1;
+  const progress: StageProgress = { loop: 0, speedScale: 1, groupId: "", index: 0, total: 0, patternId: "" };
+  world.spawn(demoStageFrom({ loop: startLoop, group: startGroup, pattern: startPattern }, progress));
 
   let aiDef = findAI(params.get("ai"));
   let ai: DodgeAI = aiDef.create();
@@ -68,7 +76,9 @@ async function main(): Promise<void> {
     if (world.frame % 10 === 0) {
       hudEl.textContent =
         `FPS ${ticker.FPS.toFixed(0)} / bullets ${world.bullets.count} / hits ${world.stats.hits}` +
-        ` / AI ${aiTimeMs.toFixed(2)}ms / seed ${seed}`;
+        ` / AI ${aiTimeMs.toFixed(2)}ms / seed ${seed}\n` +
+        `${progress.loop > 0 ? `loop ${progress.loop + 1} (speed x${progress.speedScale.toFixed(2)}) / ` : ""}${progress.groupId} ${progress.index + 1}/${progress.total}` +
+        ` / ${progress.patternId}`;
     }
   });
 }
