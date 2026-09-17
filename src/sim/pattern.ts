@@ -23,6 +23,8 @@ export interface PatternContext {
   /** 自機の現在位置（自機狙い弾用） */
   playerX(): number;
   playerY(): number;
+  /** ボスの位置。パターンから書き換えてボスを動かせる。 */
+  readonly boss: { x: number; y: number };
   /** 角度（ラジアン、0 = 右、π/2 = 下）と速さ（px/frame）で弾を撃つ */
   fire(x: number, y: number, angle: number, speed: number, style: BulletStyle): void;
   /** 並行して動くサブパターンを起動する */

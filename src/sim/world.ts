@@ -11,12 +11,18 @@ export interface PlayerView {
   readonly speed: number;
 }
 
+export interface BossView {
+  readonly x: number;
+  readonly y: number;
+}
+
 /** AI と描画に公開する、読み取り専用のワールド状態。 */
 export interface WorldView {
   readonly width: number;
   readonly height: number;
   readonly frame: number;
   readonly player: PlayerView;
+  readonly boss: BossView;
   readonly bullets: BulletsView;
 }
 
@@ -50,6 +56,7 @@ export class World implements WorldView {
   readonly rng: Rng;
   readonly bullets: BulletPool;
   readonly player: { x: number; y: number; radius: number; speed: number };
+  readonly boss: { x: number; y: number };
   readonly stats: WorldStats = { hits: 0, invincible: 0 };
   frame = 0;
 
@@ -66,6 +73,7 @@ export class World implements WorldView {
       radius: options.playerRadius ?? 3,
       speed: options.playerSpeed ?? 3,
     };
+    this.boss = { x: options.width / 2, y: options.height * 0.2 };
 
     const ctx: PatternContext = {
       width: this.width,
@@ -74,6 +82,7 @@ export class World implements WorldView {
       frame: () => this.frame,
       playerX: () => this.player.x,
       playerY: () => this.player.y,
+      boss: this.boss,
       fire: (x, y, angle, speed, style) => {
         this.bullets.add(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, style);
       },
