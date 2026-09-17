@@ -42,18 +42,29 @@ async function main(): Promise<void> {
   let aiDef = findAI(params.get("ai"));
   let ai: DodgeAI = aiDef.create();
 
-  for (const def of aiDefinitions) {
-    selectEl.add(new Option(def.label, def.id, false, def === aiDef));
+  const titleSelectEl = document.getElementById("title-ai-select") as HTMLSelectElement;
+  const selectEls = [selectEl, titleSelectEl];
+  for (const el of selectEls) {
+    for (const def of aiDefinitions) {
+      el.add(new Option(def.label, def.id, false, def === aiDef));
+    }
   }
-  selectEl.addEventListener("change", () => {
-    aiDef = findAI(selectEl.value);
+  // タイトル中は URL を書き換えない（Start 前に再読み込みしたらタイトルに戻れるように）
+  let started = !showTitle;
+  const changeAI = (id: string) => {
+    aiDef = findAI(id);
     ai = aiDef.create();
     touch.enabled = aiDef === manualAI;
+    for (const el of selectEls) el.value = aiDef.id;
     params.set("ai", aiDef.id);
-    history.replaceState(null, "", `?${params}`);
+    if (started) history.replaceState(null, "", `?${params}`);
+  };
+  selectEl.addEventListener("change", () => {
+    changeAI(selectEl.value);
     // フォーカスが残っていると矢印キーでセレクトの値が変わってしまう
     selectEl.blur();
   });
+  titleSelectEl.addEventListener("change", () => changeAI(titleSelectEl.value));
   touch.enabled = aiDef === manualAI;
 
   // キーボード操作（手動操作のときだけ効く）
@@ -72,8 +83,10 @@ async function main(): Promise<void> {
   if (showTitle) {
     renderer.draw(world, false);
     await waitForStart();
-    // 再読み込みで同じ弾幕を再現できるように seed を URL に残す
+    started = true;
+    // 再読み込みで同じ弾幕と AI を再現できるように seed と ai を URL に残す
     params.set("seed", String(seed));
+    params.set("ai", aiDef.id);
     history.replaceState(null, "", `?${params}`);
   }
 
@@ -104,11 +117,15 @@ async function main(): Promise<void> {
 function waitForStart(): Promise<void> {
   const titleEl = document.getElementById("title")!;
   const buttonEl = document.getElementById("start-button")!;
+  // タイトル中は右上のセレクトを隠す（タイトル画面のセレクトで選ぶ）
+  const controlsEl = document.getElementById("controls")!;
+  controlsEl.hidden = true;
   titleEl.hidden = false;
   buttonEl.focus();
   return new Promise((resolve) => {
     buttonEl.addEventListener("click", () => {
       titleEl.hidden = true;
+      controlsEl.hidden = false;
       resolve();
     }, { once: true });
   });
