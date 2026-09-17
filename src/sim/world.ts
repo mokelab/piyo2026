@@ -1,0 +1,133 @@
+import { BulletPool, type BulletsView } from "./bullets";
+import { PatternRunner, type Pattern, type PatternContext } from "./pattern";
+import { Rng } from "./rng";
+
+export interface PlayerView {
+  readonly x: number;
+  readonly y: number;
+  /** 当たり判定の半径 */
+  readonly radius: number;
+  /** 1 フレームに動ける最大距離 */
+  readonly speed: number;
+}
+
+/** AI と描画に公開する、読み取り専用のワールド状態。 */
+export interface WorldView {
+  readonly width: number;
+  readonly height: number;
+  readonly frame: number;
+  readonly player: PlayerView;
+  readonly bullets: BulletsView;
+}
+
+/** 自機の移動指示。dx, dy は [-1, 1] で、長さ 1 を超える分は正規化される。 */
+export interface MoveIntent {
+  dx: number;
+  dy: number;
+}
+
+export interface WorldOptions {
+  width: number;
+  height: number;
+  seed: number;
+  bulletCapacity?: number;
+  playerRadius?: number;
+  playerSpeed?: number;
+}
+
+export interface WorldStats {
+  hits: number;
+  /** 被弾後の無敵残りフレーム（鑑賞用なので被弾してもゲームは止めない） */
+  invincible: number;
+}
+
+const OFFSCREEN_MARGIN = 32;
+const INVINCIBLE_FRAMES = 60;
+
+export class World implements WorldView {
+  readonly width: number;
+  readonly height: number;
+  readonly rng: Rng;
+  readonly bullets: BulletPool;
+  readonly player: { x: number; y: number; radius: number; speed: number };
+  readonly stats: WorldStats = { hits: 0, invincible: 0 };
+  frame = 0;
+
+  private readonly runner: PatternRunner;
+
+  constructor(options: WorldOptions) {
+    this.width = options.width;
+    this.height = options.height;
+    this.rng = new Rng(options.seed);
+    this.bullets = new BulletPool(options.bulletCapacity ?? 20000);
+    this.player = {
+      x: options.width / 2,
+      y: options.height * 0.85,
+      radius: options.playerRadius ?? 3,
+      speed: options.playerSpeed ?? 3,
+    };
+
+    const ctx: PatternContext = {
+      width: this.width,
+      height: this.height,
+      rng: this.rng,
+      frame: () => this.frame,
+      playerX: () => this.player.x,
+      playerY: () => this.player.y,
+      fire: (x, y, angle, speed, style) => {
+        this.bullets.add(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, style);
+      },
+      spawn: (pattern) => this.runner.spawn(pattern),
+    };
+    this.runner = new PatternRunner(ctx);
+  }
+
+  spawn(pattern: Pattern): void {
+    this.runner.spawn(pattern);
+  }
+
+  /** 1 フレーム進める。順序: パターン発射 → 弾移動 → 自機移動 → 当たり判定 */
+  step(intent: MoveIntent): void {
+    this.runner.step();
+    this.bullets.step(this.width, this.height, OFFSCREEN_MARGIN);
+    this.movePlayer(intent);
+    this.checkHit();
+    this.frame++;
+  }
+
+  private movePlayer(intent: MoveIntent): void {
+    let { dx, dy } = intent;
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    const len = Math.hypot(dx, dy);
+    if (len > 1) {
+      dx /= len;
+      dy /= len;
+    }
+    const p = this.player;
+    p.x = clamp(p.x + dx * p.speed, 0, this.width);
+    p.y = clamp(p.y + dy * p.speed, 0, this.height);
+  }
+
+  private checkHit(): void {
+    if (this.stats.invincible > 0) {
+      this.stats.invincible--;
+      return;
+    }
+    const { x, y, radius, count } = this.bullets;
+    const p = this.player;
+    for (let i = 0; i < count; i++) {
+      const r = radius[i] + p.radius;
+      const ddx = x[i] - p.x;
+      const ddy = y[i] - p.y;
+      if (ddx * ddx + ddy * ddy < r * r) {
+        this.stats.hits++;
+        this.stats.invincible = INVINCIBLE_FRAMES;
+        return;
+      }
+    }
+  }
+}
+
+function clamp(v: number, min: number, max: number): number {
+  return v < min ? min : v > max ? max : v;
+}
