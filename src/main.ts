@@ -11,6 +11,8 @@ const MAX_STEPS_PER_FRAME = 4;
 
 async function main(): Promise<void> {
   const params = new URLSearchParams(location.search);
+  // クエリパラメータ無しで開いたときはタイトル画面から始める
+  const showTitle = location.search === "";
   const seed = Number(params.get("seed") ?? Date.now()) >>> 0;
 
   const stageEl = document.getElementById("stage")!;
@@ -37,6 +39,14 @@ async function main(): Promise<void> {
   fitStage(stageEl);
   window.addEventListener("resize", () => fitStage(stageEl));
 
+  if (showTitle) {
+    renderer.draw(world, false);
+    await waitForStart();
+    // 再読み込みで同じ弾幕を再現できるように seed を URL に残す
+    params.set("seed", String(seed));
+    history.replaceState(null, "", `?${params}`);
+  }
+
   let accumulator = 0;
   let aiTimeMs = 0;
   renderer.app.ticker.add((ticker) => {
@@ -55,6 +65,20 @@ async function main(): Promise<void> {
         `FPS ${ticker.FPS.toFixed(0)} / bullets ${world.bullets.count} / hits ${world.stats.hits}` +
         ` / AI ${aiTimeMs.toFixed(2)}ms / seed ${seed}`;
     }
+  });
+}
+
+/** タイトル画面を表示し、Start が押されるまで待つ */
+function waitForStart(): Promise<void> {
+  const titleEl = document.getElementById("title")!;
+  const buttonEl = document.getElementById("start-button")!;
+  titleEl.hidden = false;
+  buttonEl.focus();
+  return new Promise((resolve) => {
+    buttonEl.addEventListener("click", () => {
+      titleEl.hidden = true;
+      resolve();
+    }, { once: true });
   });
 }
 

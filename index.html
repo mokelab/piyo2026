@@ -7,11 +7,16 @@
     <style>
       html, body { margin: 0; height: 100%; background: #05060a; color: #cfd6e6; font-family: system-ui, sans-serif; }
       #app { height: 100%; display: flex; align-items: center; justify-content: center; }
-      #stage { position: relative; }
+      #stage { position: relative; container-type: size; }
       #stage canvas { display: block; width: 100% !important; height: 100% !important; }
       #hud { position: absolute; top: 8px; left: 8px; font-size: 12px; line-height: 1.5; pointer-events: none; text-shadow: 0 0 4px #000; }
       #controls { position: absolute; top: 8px; right: 8px; font-size: 12px; }
       #controls select { font-size: 12px; }
+      #title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8cqh; background: rgba(5, 6, 10, 0.7); }
+      #title[hidden] { display: none; }
+      #title h1 { margin: 0; font-size: 14cqw; letter-spacing: 0.04em; color: #fff; text-shadow: 0 0 2cqw #ffcc33; }
+      #title button { font: inherit; font-size: 5cqw; padding: 1.5cqw 8cqw; color: #fff; background: transparent; border: 2px solid #cfd6e6; border-radius: 999px; cursor: pointer; }
+      #title button:hover, #title button:focus-visible { background: #cfd6e6; color: #05060a; outline: none; }
     </style>
   </head>
   <body>
@@ -20,6 +25,10 @@
         <div id="hud"></div>
         <div id="controls">
           <label>AI <select id="ai-select"></select></label>
+        </div>
+        <div id="title" hidden>
+          <h1>Piyo 2026</h1>
+          <button id="start-button" type="button">Start</button>
         </div>
       </div>
     </div>
