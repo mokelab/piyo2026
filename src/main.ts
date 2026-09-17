@@ -1,4 +1,7 @@
 import { aiDefinitions, findAI } from "./ai/registry";
+import { manualAI } from "./ai/manual";
+import { manualInput } from "./input/manualInput";
+import { TouchDrag } from "./input/touchDrag";
 import type { DodgeAI } from "./ai/types";
 import { Renderer } from "./render/renderer";
 import { demoPatternIds, demoStageFrom, difficultyGroupIds, type StageProgress } from "./sim/patterns/basic";
@@ -18,6 +21,7 @@ async function main(): Promise<void> {
   const stageEl = document.getElementById("stage")!;
   const hudEl = document.getElementById("hud")!;
   const selectEl = document.getElementById("ai-select") as HTMLSelectElement;
+  const touch = new TouchDrag(document.getElementById("touch")!, manualInput, WIDTH);
 
   const world = new World({ width: WIDTH, height: HEIGHT, seed });
   // ?pattern=<id> で最初に流すパターンを固定する（パターン確認用）
@@ -44,9 +48,22 @@ async function main(): Promise<void> {
   selectEl.addEventListener("change", () => {
     aiDef = findAI(selectEl.value);
     ai = aiDef.create();
+    touch.enabled = aiDef === manualAI;
     params.set("ai", aiDef.id);
     history.replaceState(null, "", `?${params}`);
+    // フォーカスが残っていると矢印キーでセレクトの値が変わってしまう
+    selectEl.blur();
   });
+  touch.enabled = aiDef === manualAI;
+
+  // キーボード操作（手動操作のときだけ効く）
+  window.addEventListener("keydown", (e) => {
+    if (aiDef !== manualAI || e.target instanceof HTMLSelectElement) return;
+    manualInput.keyDown(e.code);
+    if (e.code.startsWith("Arrow")) e.preventDefault();
+  });
+  window.addEventListener("keyup", (e) => manualInput.keyUp(e.code));
+  window.addEventListener("blur", () => manualInput.clear());
 
   const renderer = await Renderer.create(stageEl, WIDTH, HEIGHT);
   fitStage(stageEl);

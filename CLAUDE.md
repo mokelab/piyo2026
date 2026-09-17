@@ -28,7 +28,7 @@ npm run deploy     # build して dist を gh-pages ブランチへ push（GitHu
 - `?pattern=<id>`: デモステージをこのパターンから始める（id は `difficultyGroups` 内の各 step の `id`。そのパターンを含むグループから始まる）
 - `?group=<id>`: デモステージをこの難易度グループから始める（`easy` / `normal` / `hard`）
 - `?loop=<n>`: デモステージを n 周目（1 始まり）から始める。周を重ねるほど弾が速い
-- `?ai=<id>`: 回避 AI を選ぶ
+- `?ai=<id>`: 回避 AI を選ぶ（`manual` で自分で操作する）
 - クエリ無しで開くとタイトル画面から始まり、Start 後に `seed` が URL に書き込まれる
 
 ## アーキテクチャ
@@ -59,6 +59,7 @@ npm run deploy     # build して dist を gh-pages ブランチへ push（GitHu
 
 - `DodgeAI.decide(world)` が `MoveIntent { dx, dy }`（[-1, 1]、長さ 1 超は正規化）を返す。
 - AI は状態を持ちうるので、`DodgeAIDefinition`（`id`, `label`, `create()` ファクトリ）として `src/ai/registry.ts` の `aiDefinitions` に登録する。登録するだけで UI のセレクトと `?ai=` から選べる。先頭がデフォルト。
+- `manual.ts` は人が操作する AI。`src/input/manualInput.ts` の共有入力状態を返すだけで、入力は `src/input/touchDrag.ts`（画面のどこをドラッグしても指が動いた分だけ自機が動く相対ドラッグ、`#touch` 要素）とキーボード（矢印 / WASD、Shift で低速）が書き込む。ドラッグの移動量は溜めておき、自機は `speed` の上限内で毎フレーム追いかける。タッチは手動操作を選んでいる間だけ受け付ける。
 - `lookahead.ts` は候補方向ごとに弾を等速直線運動と仮定して数十フレーム先まで外挿し、危険度で最良方向を選ぶ。HUD に AI の処理時間が出るので、重さはそこで確認できる。
 
 ### 描画（`src/render/renderer.ts`）
