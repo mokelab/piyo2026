@@ -30,6 +30,7 @@ export interface WorldView {
   readonly boss: BossView;
   readonly enemies: readonly EnemyView[];
   readonly bullets: BulletsView;
+  readonly stats: Readonly<WorldStats>;
 }
 
 /** 自機の移動指示。dx, dy は [-1, 1] で、長さ 1 を超える分は正規化される。 */
@@ -45,12 +46,18 @@ export interface WorldOptions {
   bulletCapacity?: number;
   playerRadius?: number;
   playerSpeed?: number;
+  /** 残機。この回数被弾すると GAME OVER になる。省略時は無制限 */
+  lives?: number;
 }
 
 export interface WorldStats {
   hits: number;
-  /** 被弾後の無敵残りフレーム（鑑賞用なので被弾してもゲームは止めない） */
+  /** 被弾後の無敵残りフレーム */
   invincible: number;
+  /** 最初の残機 */
+  maxLives: number;
+  /** 残機。0 になると GAME OVER で、以降 step しても何も進まない */
+  lives: number;
 }
 
 const OFFSCREEN_MARGIN = 32;
@@ -64,7 +71,7 @@ export class World implements WorldView {
   readonly player: { x: number; y: number; radius: number; speed: number };
   readonly boss: { x: number; y: number };
   readonly enemies: EnemyHandle[] = [];
-  readonly stats: WorldStats = { hits: 0, invincible: 0 };
+  readonly stats: WorldStats;
   frame = 0;
 
   private readonly runner: PatternRunner;
@@ -73,6 +80,8 @@ export class World implements WorldView {
     this.width = options.width;
     this.height = options.height;
     this.rng = new Rng(options.seed);
+    const lives = options.lives ?? Infinity;
+    this.stats = { hits: 0, invincible: 0, maxLives: lives, lives };
     this.bullets = new BulletPool(options.bulletCapacity ?? 20000);
     this.player = {
       x: options.width / 2,
@@ -113,8 +122,13 @@ export class World implements WorldView {
     this.runner.spawn(pattern);
   }
 
-  /** 1 フレーム進める。順序: パターン発射 → 敵の片付け → 弾移動 → 自機移動 → 当たり判定 */
+  get gameOver(): boolean {
+    return this.stats.lives <= 0;
+  }
+
+  /** 1 フレーム進める。順序: パターン発射 → 敵の片付け → 弾移動 → 自機移動 → 当たり判定。GAME OVER 後は何もしない */
   step(intent: MoveIntent): void {
+    if (this.gameOver) return;
     this.runner.step();
     this.removeDeadEnemies();
     this.bullets.step(this.width, this.height, OFFSCREEN_MARGIN, this.player.x, this.player.y);
@@ -157,6 +171,7 @@ export class World implements WorldView {
       const ddy = y[i] - p.y;
       if (ddx * ddx + ddy * ddy < r * r) {
         this.stats.hits++;
+        this.stats.lives--;
         this.stats.invincible = INVINCIBLE_FRAMES;
         return;
       }

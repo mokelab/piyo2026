@@ -11,6 +11,8 @@ const WIDTH = 480;
 const HEIGHT = 640;
 const STEP_MS = 1000 / 60;
 const MAX_STEPS_PER_FRAME = 4;
+/** この回数被弾すると GAME OVER */
+const LIVES = 5;
 
 async function main(): Promise<void> {
   const params = new URLSearchParams(location.search);
@@ -23,7 +25,7 @@ async function main(): Promise<void> {
   const selectEl = document.getElementById("ai-select") as HTMLSelectElement;
   const touch = new TouchDrag(document.getElementById("touch")!, manualInput, WIDTH);
 
-  const world = new World({ width: WIDTH, height: HEIGHT, seed });
+  const world = new World({ width: WIDTH, height: HEIGHT, seed, lives: LIVES });
   // ?pattern=<id> で最初に流すパターンを固定する（パターン確認用）
   const startPattern = params.get("pattern");
   if (startPattern !== null && !demoPatternIds.includes(startPattern)) {
@@ -81,7 +83,7 @@ async function main(): Promise<void> {
   window.addEventListener("resize", () => fitStage(stageEl));
 
   if (showTitle) {
-    renderer.draw(world, false);
+    renderer.draw(world);
     await waitForStart();
     started = true;
     // 再読み込みで同じ弾幕と AI を再現できるように seed と ai を URL に残す
@@ -92,16 +94,21 @@ async function main(): Promise<void> {
 
   let accumulator = 0;
   let aiTimeMs = 0;
+  let gameOverShown = false;
   renderer.app.ticker.add((ticker) => {
     accumulator = Math.min(accumulator + ticker.deltaMS, STEP_MS * MAX_STEPS_PER_FRAME);
-    while (accumulator >= STEP_MS) {
+    while (accumulator >= STEP_MS && !world.gameOver) {
       const t0 = performance.now();
       const intent = ai.decide(world);
       aiTimeMs = aiTimeMs * 0.9 + (performance.now() - t0) * 0.1;
       world.step(intent);
       accumulator -= STEP_MS;
     }
-    renderer.draw(world, world.stats.invincible > 0);
+    renderer.draw(world);
+    if (world.gameOver && !gameOverShown) {
+      gameOverShown = true;
+      showGameOver(progress, world.frame);
+    }
 
     if (world.frame % 10 === 0) {
       hudEl.textContent =
@@ -129,6 +136,24 @@ function waitForStart(): Promise<void> {
       resolve();
     }, { once: true });
   });
+}
+
+/** GAME OVER 画面を出す。Retry は同じ URL（seed など）で最初から、Title はクエリ無しで開き直す */
+function showGameOver(progress: StageProgress, frame: number): void {
+  const el = document.getElementById("gameover")!;
+  const seconds = Math.floor(frame / 60);
+  document.getElementById("gameover-result")!.textContent =
+    `loop ${progress.loop + 1} / ${progress.groupId} ${progress.index + 1}/${progress.total}\n` +
+    `${progress.patternId}\n` +
+    `time ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  document.getElementById("controls")!.hidden = true;
+  el.hidden = false;
+  const retryEl = document.getElementById("retry-button")!;
+  retryEl.addEventListener("click", () => location.reload(), { once: true });
+  document.getElementById("title-button")!.addEventListener("click", () => {
+    location.href = location.pathname;
+  }, { once: true });
+  retryEl.focus();
 }
 
 /** 論理解像度の縦横比を保ったままウィンドウに収める */
