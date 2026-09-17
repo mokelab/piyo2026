@@ -173,6 +173,23 @@ export const doubleScatteredRings = (frames: number): Pattern =>
   };
 
 /**
+ * ボスから全方位リングを撃ち、各弾が左右の壁で 1 回だけ跳ね返る。
+ * 跳ね返った弾が後から撃ったリングと交差して網目になり、画面の端に逃げても戻ってくる弾に挟まれる。
+ */
+export const wallBounceRings = (frames: number): Pattern =>
+  function* (ctx) {
+    const n = 36;
+    const interval = 24;
+    for (let f = 0; f < frames; f += interval) {
+      const offset = ctx.rng.next() * TAU;
+      for (let i = 0; i < n; i++) {
+        ctx.fire(ctx.boss.x, ctx.boss.y, offset + (i / n) * TAU, 1.5, { radius: 4, color: 0x66ffdd }, { wallBounces: 1 });
+      }
+      yield interval;
+    }
+  };
+
+/**
  * 自機狙いの偶数弾（自機が隙間に来る扇）を密に撃ち続けて横移動を封じつつ、
  * 大きな自機狙い弾を一定間隔で混ぜて、狭い隙間の中で小さく避けさせる。
  */
@@ -327,6 +344,7 @@ const difficultyGroups = (motion: BossMotion): DifficultyGroup[] => [
     steps: [
       { id: "evenFanStreamWithAimedShot", pattern: evenFanStreamWithAimedShot(600), rest: 60 },
       { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
+      { id: "wallBounceRings", pattern: wallBounceRings(600), rest: 90 },
       {
         id: "evenFanRandomMix",
         pattern: togetherRandomPick(evenFanStreamWithAimedShot(600), [

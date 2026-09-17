@@ -56,6 +56,21 @@ describe("BulletPool", () => {
     expect(pool.count).toBe(4);
   });
 
+  it("wallBounces の回数だけ左右の壁で跳ね返り、使い切ったら壁の外へ出て消える", () => {
+    const pool = new BulletPool(8);
+    pool.add(98, 50, 3, 1, style, { wallBounces: 1 });
+    // x = 101 は壁の外なので、x = 100 で折り返して 99 に置く
+    pool.step(100, 100, 5, 0, 0);
+    expect([pool.x[0], pool.y[0], pool.vx[0], pool.vy[0]]).toEqual([99, 51, -3, 1]);
+    for (let t = 0; t < 33; t++) pool.step(100, 100, 5, 0, 0);
+    expect(pool.x[0]).toBe(0);
+    // 2 回目は跳ね返らず、margin の外に出たら消える
+    pool.step(100, 100, 5, 0, 0);
+    expect([pool.count, pool.x[0]]).toEqual([1, -3]);
+    pool.step(100, 100, 5, 0, 0);
+    expect(pool.count).toBe(0);
+  });
+
   it("容量を超えたら追加しない", () => {
     const pool = new BulletPool(1);
     expect(pool.add(0, 0, 0, 0, style)).toBe(true);

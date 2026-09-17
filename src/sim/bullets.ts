@@ -20,6 +20,8 @@ export interface BulletBehavior {
   aimAfter?: number;
   /** 一定フレーム後に消えて、その位置から小さな弾をばらまく */
   burst?: BulletBurst;
+  /** 左右の壁（x = 0, x = width）に届いたら跳ね返る回数 */
+  wallBounces?: number;
 }
 
 /** 破裂の設定。子弾は親弾の進行方向を基準に全方位へ等間隔に撃つ（子弾自身は破裂しない）。 */
@@ -49,6 +51,8 @@ export class BulletPool implements BulletsView {
   readonly aimDelay: Int32Array;
   /** 破裂までの残りフレーム（0 = 破裂しない） */
   readonly burstDelay: Int32Array;
+  /** 左右の壁で跳ね返る残り回数 */
+  readonly bounces: Int32Array;
   private readonly burstSpec: (BulletBurst | undefined)[];
   /** step 中に破裂した弾。子弾はループの後でまとめて追加する */
   private readonly pendingBursts: { x: number; y: number; angle: number; spec: BulletBurst }[] = [];
@@ -62,6 +66,7 @@ export class BulletPool implements BulletsView {
     this.color = new Uint32Array(capacity);
     this.aimDelay = new Int32Array(capacity);
     this.burstDelay = new Int32Array(capacity);
+    this.bounces = new Int32Array(capacity);
     this.burstSpec = new Array(capacity);
   }
 
@@ -78,6 +83,7 @@ export class BulletPool implements BulletsView {
     this.aimDelay[i] = Math.max(0, Math.floor(behavior?.aimAfter ?? 0));
     this.burstDelay[i] = Math.max(0, Math.floor(behavior?.burst?.after ?? 0));
     this.burstSpec[i] = behavior?.burst;
+    this.bounces[i] = Math.max(0, Math.floor(behavior?.wallBounces ?? 0));
     return true;
   }
 
@@ -85,9 +91,10 @@ export class BulletPool implements BulletsView {
    * 全弾を 1 フレーム進め、[-margin, width+margin] x [-margin, height+margin] の外に出た弾を消す。
    * 向きを変える時が来た弾は、移動の前に (targetX, targetY) へ向ける。
    * 破裂する時が来た弾は消え、子弾は次のフレームから動き出す。
+   * 跳ね返る回数が残っている弾は、左右の壁を越えたら壁で折り返して横向きの速さを反転する。
    */
   step(width: number, height: number, margin: number, targetX: number, targetY: number): void {
-    const { x, y, vx, vy, aimDelay, burstDelay } = this;
+    const { x, y, vx, vy, aimDelay, burstDelay, bounces } = this;
     let i = 0;
     while (i < this.count) {
       if (burstDelay[i] > 0 && --burstDelay[i] === 0) {
@@ -102,8 +109,13 @@ export class BulletPool implements BulletsView {
         vx[i] = Math.cos(angle) * speed;
         vy[i] = Math.sin(angle) * speed;
       }
-      const nx = x[i] + vx[i];
+      let nx = x[i] + vx[i];
       const ny = y[i] + vy[i];
+      if (bounces[i] > 0 && (nx < 0 || nx > width)) {
+        nx = nx < 0 ? -nx : 2 * width - nx;
+        vx[i] = -vx[i];
+        bounces[i]--;
+      }
       if (nx < -margin || nx > width + margin || ny < -margin || ny > height + margin) {
         this.removeAt(i);
         continue;
@@ -140,6 +152,7 @@ export class BulletPool implements BulletsView {
     this.color[i] = this.color[last];
     this.aimDelay[i] = this.aimDelay[last];
     this.burstDelay[i] = this.burstDelay[last];
+    this.bounces[i] = this.bounces[last];
     this.burstSpec[i] = this.burstSpec[last];
     this.burstSpec[last] = undefined;
   }
