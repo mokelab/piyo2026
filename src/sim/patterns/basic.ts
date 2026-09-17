@@ -65,6 +65,16 @@ export const centerRandomPick = (motion: BossMotion, candidates: readonly Patter
     motion.swaying = true;
   };
 
+/**
+ * base と、candidates からランダムに 1 つ選んだパターンを同時に撃つ。
+ * 選んだ方は並行タスクとして走り、base が終わっても止まらないので、長さは base と揃えておく。
+ */
+export const togetherRandomPick = (base: Pattern, candidates: readonly Pattern[]): Pattern =>
+  function* (ctx) {
+    const picked = candidates[Math.floor(ctx.rng.next() * candidates.length)];
+    yield* together(base, picked)(ctx);
+  };
+
 /** 回転しながら複数の腕で撃ち続ける渦巻き */
 export const spiral = (frames: number, arms = 5): Pattern =>
   function* (ctx) {
@@ -162,6 +172,39 @@ export const doubleScatteredRings = (frames: number): Pattern =>
     }
   };
 
+/**
+ * 自機狙いの偶数弾（自機が隙間に来る扇）を密に撃ち続けて横移動を封じつつ、
+ * 大きな自機狙い弾を一定間隔で混ぜて、狭い隙間の中で小さく避けさせる。
+ */
+export const evenFanStreamWithAimedShot = (frames: number): Pattern =>
+  function* (ctx) {
+    ctx.spawn(aimedBigShots(frames));
+    const n = 6;
+    const spacing = 0.28;
+    const interval = 5;
+    for (let f = 0; f < frames; f += interval) {
+      const aim = Math.atan2(ctx.playerY() - ctx.boss.y, ctx.playerX() - ctx.boss.x);
+      for (let i = 0; i < n; i++) {
+        // 偶数弾なので、真ん中の 2 発の間に自機の方向が来る
+        const angle = aim + (i - (n - 1) / 2) * spacing;
+        ctx.fire(ctx.boss.x, ctx.boss.y, angle, 2.6, { radius: 4, color: 0x77ddff });
+      }
+      yield interval;
+    }
+  };
+
+/** 大きな自機狙い弾を 1 秒に 1 発撃ち続ける */
+const aimedBigShots = (frames: number): Pattern =>
+  function* (ctx) {
+    const interval = 60;
+    yield 30;
+    for (let f = 30; f < frames; f += interval) {
+      const aim = Math.atan2(ctx.playerY() - ctx.boss.y, ctx.playerX() - ctx.boss.x);
+      ctx.fire(ctx.boss.x, ctx.boss.y, aim, 3.4, { radius: 12, color: 0xff5577 });
+      yield interval;
+    }
+  };
+
 /** ボスから左右に子機を撃ち出し、止まった位置から渦巻きをばらまかせる */
 export const sideSpiralEnemies = (frames: number): Pattern =>
   function* (ctx) {
@@ -232,7 +275,19 @@ const demoSteps = (motion: BossMotion): { id: string; pattern: Pattern; rest: nu
   { id: "delayedAimScatteredRings", pattern: delayedAimScatteredRings(600), rest: 60 },
   { id: "burstingRings", pattern: burstingRings(600), rest: 60 },
   { id: "sideSpiralEnemies", pattern: sideSpiralEnemies(600), rest: 60 },
+  { id: "evenFanStreamWithAimedShot", pattern: evenFanStreamWithAimedShot(600), rest: 60 },
   { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
+  {
+    id: "evenFanRandomMix",
+    pattern: togetherRandomPick(evenFanStreamWithAimedShot(600), [
+      spiral(600, 3),
+      flowerRings(600),
+      burstingRings(600),
+      sideSpiralEnemies(600),
+      rain(600),
+    ]),
+    rest: 90,
+  },
   {
     id: "centerRandomPick",
     pattern: centerRandomPick(motion, [
@@ -243,6 +298,7 @@ const demoSteps = (motion: BossMotion): { id: string; pattern: Pattern; rest: nu
       delayedAimScatteredRings(600),
       burstingRings(600),
       sideSpiralEnemies(600),
+      evenFanStreamWithAimedShot(600),
     ]),
     rest: 60,
   },
