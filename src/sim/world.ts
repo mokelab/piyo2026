@@ -90,8 +90,8 @@ export class World implements WorldView {
       playerX: () => this.player.x,
       playerY: () => this.player.y,
       boss: this.boss,
-      fire: (x, y, angle, speed, style) => {
-        this.bullets.add(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, style);
+      fire: (x, y, angle, speed, style, behavior) => {
+        this.bullets.add(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, style, behavior);
       },
       spawnEnemy: (x, y) => {
         const enemy = { x, y, alive: true };
@@ -111,7 +111,7 @@ export class World implements WorldView {
   step(intent: MoveIntent): void {
     this.runner.step();
     this.removeDeadEnemies();
-    this.bullets.step(this.width, this.height, OFFSCREEN_MARGIN);
+    this.bullets.step(this.width, this.height, OFFSCREEN_MARGIN, this.player.x, this.player.y);
     this.movePlayer(intent);
     this.checkHit();
     this.frame++;

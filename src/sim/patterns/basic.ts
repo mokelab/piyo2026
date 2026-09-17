@@ -109,6 +109,22 @@ export const flowerRings = (frames: number): Pattern =>
     }
   };
 
+/** flowerRings と同じリングを撃ち、1 秒後に各弾の向きを自機狙いに変える */
+export const delayedAimScatteredRings = (frames: number): Pattern =>
+  function* (ctx) {
+    const n = 36;
+    const interval = 24;
+    for (let f = 0; f < frames; f += interval) {
+      const cx = ctx.boss.x + ctx.rng.range(-100, 100);
+      const cy = ctx.boss.y + ctx.rng.range(-40, 60);
+      const offset = ctx.rng.next() * TAU;
+      for (let i = 0; i < n; i++) {
+        ctx.fire(cx, cy, offset + (i / n) * TAU, 1.8, { radius: 4, color: 0xffaa33 }, { aimAfter: 60 });
+      }
+      yield interval;
+    }
+  };
+
 /** ボスの周囲の位置をずらしながら、速さの違う全方位リングを2重に撃つ */
 export const doubleScatteredRings = (frames: number): Pattern =>
   function* (ctx) {
@@ -195,6 +211,7 @@ const demoSteps = (motion: BossMotion): { id: string; pattern: Pattern; rest: nu
   { id: "aimedFan", pattern: aimedFan(480), rest: 60 },
   { id: "flowerRings", pattern: flowerRings(600), rest: 60 },
   { id: "doubleScatteredRings", pattern: doubleScatteredRings(600), rest: 60 },
+  { id: "delayedAimScatteredRings", pattern: delayedAimScatteredRings(600), rest: 60 },
   { id: "sideSpiralEnemies", pattern: sideSpiralEnemies(600), rest: 60 },
   { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
   {
@@ -204,6 +221,7 @@ const demoSteps = (motion: BossMotion): { id: string; pattern: Pattern; rest: nu
       aimedFan(480),
       flowerRings(600),
       doubleScatteredRings(600),
+      delayedAimScatteredRings(600),
       sideSpiralEnemies(600),
     ]),
     rest: 60,

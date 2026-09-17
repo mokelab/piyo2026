@@ -11,9 +11,21 @@ describe("BulletPool", () => {
     const pool = new BulletPool(8);
     pool.add(10, 10, -20, 0, style); // 外に出る
     pool.add(50, 50, 1, 0, style);
-    pool.step(100, 100, 5);
+    pool.step(100, 100, 5, 0, 0);
     expect(pool.count).toBe(1);
     expect(pool.x[0]).toBe(51);
+  });
+
+  it("aimAfter フレーム経った弾は速さを保ったまま目標へ向きを変える", () => {
+    const pool = new BulletPool(8);
+    pool.add(50, 50, 2, 0, style, { aimAfter: 2 });
+    pool.step(100, 100, 5, 52, 0);
+    expect([pool.vx[0], pool.vy[0]]).toEqual([2, 0]);
+    // 2 回目の移動の前に (52, 50) から (52, 0) へ向く
+    pool.step(100, 100, 5, 52, 0);
+    expect(pool.vx[0]).toBeCloseTo(0);
+    expect(pool.vy[0]).toBeCloseTo(-2);
+    expect(pool.y[0]).toBeCloseTo(48);
   });
 
   it("容量を超えたら追加しない", () => {
