@@ -38,7 +38,7 @@ npm run deploy     # build して dist を gh-pages ブランチへ push（GitHu
 - **固定ステップ**: `src/main.ts` が 60fps 固定ステップでループし、毎ステップ `ai.decide(world)` → `world.step(intent)` を呼ぶ。描画はフレームごとに 1 回。
 - **決定性**: 乱数は必ず `ctx.rng`（`World` が持つシード付き mulberry32）を使う。`Math.random()` を使うとシード再現が壊れる。
 - **読み取り専用ビュー**: AI と Renderer は `WorldView` / `BulletsView` だけを見て、ワールドを書き換えない。先読みしたい AI は自前でコピー・外挿する。
-- **`World.step` の順序**: パターン実行 → 死んだ敵の除去 → 弾移動 → 自機移動 → 当たり判定。被弾してもゲームは止まらず、ヒット数を数えて一定時間無敵になるだけ。
+- **`World.step` の順序**: パターン実行 → 死んだ敵の除去 → 弾移動 → 自機移動 → 当たり判定。被弾すると残機（`WorldOptions.lives`、省略時は無制限。`main.ts` では 5）が減って一定時間無敵になり、残機が 0 になると `gameOver` が true になって以降の `step` は何もしない。GAME OVER 画面の Retry は同じ URL で再読み込み、Title はクエリ無しで開き直す。
 
 ### 弾（`src/sim/bullets.ts`）
 

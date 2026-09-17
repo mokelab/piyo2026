@@ -222,4 +222,26 @@ describe("World", () => {
     world.step({ dx: 10, dy: 10 });
     expect(Math.hypot(world.player.x - x, world.player.y - y)).toBeCloseTo(3);
   });
+
+  it("被弾するたびに残機が減り、0 になると GAME OVER で以降は進まない", () => {
+    const world = new World({ width: 480, height: 640, seed: 1, lives: 2 });
+    const { x, y } = world.player;
+    // 1 フレームで自機に重なり、次のフレームで画面外へ抜けて消える弾を撃つ
+    const hitOnce = () => {
+      world.bullets.add(x, y - 400, 0, 400, style);
+      world.step({ dx: 0, dy: 0 });
+    };
+    hitOnce();
+    expect(world.stats).toMatchObject({ hits: 1, lives: 1 });
+    expect(world.gameOver).toBe(false);
+    // 無敵が切れるまで待つ
+    for (let i = 0; i < 60; i++) world.step({ dx: 0, dy: 0 });
+    hitOnce();
+    expect(world.stats).toMatchObject({ hits: 2, lives: 0 });
+    expect(world.gameOver).toBe(true);
+    const frame = world.frame;
+    world.step({ dx: 1, dy: 0 });
+    expect(world.frame).toBe(frame);
+    expect(world.player.x).toBe(x);
+  });
 });
