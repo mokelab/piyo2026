@@ -12,11 +12,12 @@
 | `flowerRings` | ボスの近くのランダムな場所から、36 発の全方位リングを撃つ | `scatteredRings` | 咲き散らしリング |
 | `doubleScatteredRings` | `flowerRings` の 2 重版。速さ 2.0 と 1.2 のリングを、内側を半コマずらして同じ場所から撃つ（30 発 × 2、32 フレーム間隔） | `doubleScatteredRings`（命名方針に沿って追加済み） | 咲き散らし二重リング |
 | `sideSpiralEnemies` | ボスから左右に子モケラを撃ち出し、止まった位置から 4 本腕の渦巻きを撃たせる。左右で回転が逆向き。撃ち終わると上へ去る（150 フレームごとに 1 組） | `sideSpiralEnemies`（新規追加） | 子モケラぐるぐる |
+| `centerRandomPick` | ボスの揺れを止めて画面中央（縦横とも）へ移動し、固定の候補（`spiral` / `aimedFan` / `flowerRings` / `doubleScatteredRings` / `sideSpiralEnemies`）から 1 つ抽選して撃つ。撃ち終わったら元の y 座標へ戻り、揺れを再開する | `centerRandomPick`（新規追加） | （未定） |
 | `rain` | 画面上端のランダムな位置から、少しばらけながら弾が降る | `rain`（揃えるなら `randomRain`） | ひよこ雨 |
 
 攻撃パターン以外のもの:
 
-- `bossSway`: ボスを左右にゆっくり揺らす動き
+- `bossSway`: ボスを左右にゆっくり揺らす動き。`BossMotion` の `swaying` を false にすると止まり、戻すとなめらかに揺れへ戻る
 - `together`: 複数のパターンを同時に走らせる
 - `demoStage`: 上のパターンを順番に無限ループするサンプルステージ
 

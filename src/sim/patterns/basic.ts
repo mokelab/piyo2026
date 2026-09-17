@@ -1,18 +1,69 @@
-import type { Pattern } from "../pattern";
+import type { Pattern, PatternContext } from "../pattern";
 
 const TAU = Math.PI * 2;
 
+/** ボスの揺れを止めて、パターンからボスを直接動かすための制御 */
+export interface BossMotion {
+  swaying: boolean;
+}
+
+/** swaying が false の間は止まり、再開したら揺れの位置へなめらかに戻る */
+const SWAY_BLEND_FRAMES = 60;
+
 /** ボスをゆっくり左右に揺らし続ける */
-export const bossSway: Pattern = function* (ctx) {
-  const cx = ctx.width / 2;
-  const cy = ctx.height * 0.2;
-  for (;;) {
-    const f = ctx.frame();
-    ctx.boss.x = cx + Math.sin(f * 0.008) * ctx.width * 0.15;
-    ctx.boss.y = cy + Math.sin(f * 0.013) * 12;
+export const bossSway = (motion: BossMotion = { swaying: true }): Pattern =>
+  function* (ctx) {
+    const cx = ctx.width / 2;
+    const cy = ctx.height * 0.2;
+    let blend = 1;
+    for (;;) {
+      if (!motion.swaying) {
+        blend = 0;
+        yield 1;
+        continue;
+      }
+      const f = ctx.frame();
+      const x = cx + Math.sin(f * 0.008) * ctx.width * 0.15;
+      const y = cy + Math.sin(f * 0.013) * 12;
+      if (blend < 1) {
+        blend = Math.min(1, blend + 1 / SWAY_BLEND_FRAMES);
+        ctx.boss.x += (x - ctx.boss.x) * blend;
+        ctx.boss.y += (y - ctx.boss.y) * blend;
+      } else {
+        ctx.boss.x = x;
+        ctx.boss.y = y;
+      }
+      yield 1;
+    }
+  };
+
+/** ボスを frames フレームかけて (x, y) へ動かす（減速しながら止まる） */
+function* moveBoss(ctx: PatternContext, x: number, y: number, frames: number): Generator<number, void, void> {
+  const startX = ctx.boss.x;
+  const startY = ctx.boss.y;
+  for (let t = 1; t <= frames; t++) {
+    const k = 1 - (1 - t / frames) ** 3;
+    ctx.boss.x = startX + (x - startX) * k;
+    ctx.boss.y = startY + (y - startY) * k;
     yield 1;
   }
-};
+}
+
+/**
+ * ボスの揺れを止めて画面中央へ移動し、candidates からランダムに 1 つ選んで撃つ。
+ * 撃ち終わったら元の y 座標へ戻り、揺れを再開する。
+ * 候補は固定で渡す（自身や組み合わせを引くと入れ子や弾の量が読めなくなるため）。
+ */
+export const centerRandomPick = (motion: BossMotion, candidates: readonly Pattern[]): Pattern =>
+  function* (ctx) {
+    const originalY = ctx.boss.y;
+    motion.swaying = false;
+    yield* moveBoss(ctx, ctx.width / 2, ctx.height / 2, 60);
+    const picked = candidates[Math.floor(ctx.rng.next() * candidates.length)];
+    yield* picked(ctx);
+    yield* moveBoss(ctx, ctx.boss.x, originalY, 60);
+    motion.swaying = true;
+  };
 
 /** 回転しながら複数の腕で撃ち続ける渦巻き */
 export const spiral = (frames: number, arms = 5): Pattern =>
@@ -139,16 +190,27 @@ export const together = (...patterns: Pattern[]): Pattern =>
   };
 
 /** サンプルステージで順番に流すパターン。id は URL の ?pattern= で指定する。 */
-const demoSteps: { id: string; pattern: Pattern; rest: number }[] = [
+const demoSteps = (motion: BossMotion): { id: string; pattern: Pattern; rest: number }[] => [
   { id: "spiral", pattern: spiral(600), rest: 60 },
   { id: "aimedFan", pattern: aimedFan(480), rest: 60 },
   { id: "flowerRings", pattern: flowerRings(600), rest: 60 },
   { id: "doubleScatteredRings", pattern: doubleScatteredRings(600), rest: 60 },
   { id: "sideSpiralEnemies", pattern: sideSpiralEnemies(600), rest: 60 },
   { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
+  {
+    id: "centerRandomPick",
+    pattern: centerRandomPick(motion, [
+      spiral(600),
+      aimedFan(480),
+      flowerRings(600),
+      doubleScatteredRings(600),
+      sideSpiralEnemies(600),
+    ]),
+    rest: 60,
+  },
 ];
 
-export const demoPatternIds: readonly string[] = demoSteps.map((step) => step.id);
+export const demoPatternIds: readonly string[] = demoSteps({ swaying: true }).map((step) => step.id);
 
 /**
  * サンプルステージ: ボスを揺らしつつ、パターンを順番に無限ループ。
@@ -156,13 +218,15 @@ export const demoPatternIds: readonly string[] = demoSteps.map((step) => step.id
  */
 export const demoStageFrom = (startId?: string | null): Pattern =>
   function* (ctx) {
-    ctx.spawn(bossSway);
-    let i = Math.max(0, demoSteps.findIndex((step) => step.id === startId));
+    const motion: BossMotion = { swaying: true };
+    ctx.spawn(bossSway(motion));
+    const steps = demoSteps(motion);
+    let i = Math.max(0, steps.findIndex((step) => step.id === startId));
     for (;;) {
-      const step = demoSteps[i];
+      const step = steps[i];
       yield* step.pattern(ctx);
       yield step.rest;
-      i = (i + 1) % demoSteps.length;
+      i = (i + 1) % steps.length;
     }
   };
 

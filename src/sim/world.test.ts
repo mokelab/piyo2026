@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BulletPool } from "./bullets";
 import type { Pattern } from "./pattern";
-import { demoStage, demoStageFrom } from "./patterns/basic";
+import { type BossMotion, bossSway, centerRandomPick, demoStage, demoStageFrom } from "./patterns/basic";
 import { World } from "./world";
 
 const style = { radius: 4, color: 0xffffff };
@@ -69,6 +69,27 @@ describe("World", () => {
     world.step({ dx: 0, dy: 0 });
     world.step({ dx: 0, dy: 0 });
     expect(world.enemies.length).toBe(2);
+  });
+
+  it("centerRandomPick はボスを中央へ動かして撃ち、元の y へ戻って揺れを再開する", () => {
+    const world = new World({ width: 480, height: 640, seed: 1 });
+    const motion: BossMotion = { swaying: true };
+    world.spawn(bossSway(motion));
+    const shot: Pattern = function* (ctx) {
+      ctx.fire(ctx.boss.x, ctx.boss.y, 0, 0, style);
+      yield 10;
+    };
+    world.spawn(centerRandomPick(motion, [shot]));
+    // 1 フレーム目は揺れの位置 (240, 128) を記録してから中央へ動き始める
+    for (let i = 0; i < 62; i++) world.step({ dx: 0, dy: 0 });
+    expect(motion.swaying).toBe(false);
+    expect(world.boss).toEqual({ x: 240, y: 320 });
+    expect(world.bullets.count).toBe(1);
+
+    // 戻り終わった直後のフレーム。次のフレームから揺れの位置へ補間し始める
+    for (let i = 0; i < 69; i++) world.step({ dx: 0, dy: 0 });
+    expect(motion.swaying).toBe(true);
+    expect(world.boss.y).toBeCloseTo(128);
   });
 
   it("移動指示は長さ 1 に正規化される", () => {
