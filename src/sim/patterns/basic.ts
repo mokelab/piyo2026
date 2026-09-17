@@ -125,6 +125,24 @@ export const delayedAimScatteredRings = (frames: number): Pattern =>
     }
   };
 
+/**
+ * ボスから少なめの全方位リングを撃ち、各弾が途中で破裂して小さな弾をばらまく。
+ * 1 回で 12 × 8 = 96 発になるので、間隔を空けて doubleScatteredRings より少し多い程度の密度に抑える。
+ */
+export const burstingRings = (frames: number): Pattern =>
+  function* (ctx) {
+    const n = 12;
+    const interval = 50;
+    const burst = { after: 45, count: 8, speed: 1.3, style: { radius: 3, color: 0xffee88 } };
+    for (let f = 0; f < frames; f += interval) {
+      const offset = ctx.rng.next() * TAU;
+      for (let i = 0; i < n; i++) {
+        ctx.fire(ctx.boss.x, ctx.boss.y, offset + (i / n) * TAU, 2.2, { radius: 6, color: 0xff8844 }, { burst });
+      }
+      yield interval;
+    }
+  };
+
 /** ボスの周囲の位置をずらしながら、速さの違う全方位リングを2重に撃つ */
 export const doubleScatteredRings = (frames: number): Pattern =>
   function* (ctx) {
@@ -212,6 +230,7 @@ const demoSteps = (motion: BossMotion): { id: string; pattern: Pattern; rest: nu
   { id: "flowerRings", pattern: flowerRings(600), rest: 60 },
   { id: "doubleScatteredRings", pattern: doubleScatteredRings(600), rest: 60 },
   { id: "delayedAimScatteredRings", pattern: delayedAimScatteredRings(600), rest: 60 },
+  { id: "burstingRings", pattern: burstingRings(600), rest: 60 },
   { id: "sideSpiralEnemies", pattern: sideSpiralEnemies(600), rest: 60 },
   { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
   {
@@ -222,6 +241,7 @@ const demoSteps = (motion: BossMotion): { id: string; pattern: Pattern; rest: nu
       flowerRings(600),
       doubleScatteredRings(600),
       delayedAimScatteredRings(600),
+      burstingRings(600),
       sideSpiralEnemies(600),
     ]),
     rest: 60,

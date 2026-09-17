@@ -28,6 +28,25 @@ describe("BulletPool", () => {
     expect(pool.y[0]).toBeCloseTo(48);
   });
 
+  it("burst.after フレーム経った弾は消え、進行方向を基準に子弾をばらまく", () => {
+    const pool = new BulletPool(8);
+    const childStyle = { radius: 2, color: 0x123456 };
+    pool.add(50, 50, 0, 2, style, { burst: { after: 2, count: 4, speed: 1, style: childStyle } });
+    pool.step(100, 100, 5, 0, 0);
+    expect(pool.count).toBe(1);
+    // 2 回目の step で (50, 52) で破裂し、子弾はこのフレームでは動かない
+    pool.step(100, 100, 5, 0, 0);
+    expect(pool.count).toBe(4);
+    expect(pool.x[0]).toBeCloseTo(50);
+    expect(pool.y[0]).toBeCloseTo(52);
+    expect(pool.vx[0]).toBeCloseTo(0);
+    expect(pool.vy[0]).toBeCloseTo(1);
+    expect(pool.radius[0]).toBe(2);
+    // 子弾は破裂しない
+    for (let t = 0; t < 5; t++) pool.step(100, 100, 5, 0, 0);
+    expect(pool.count).toBe(4);
+  });
+
   it("容量を超えたら追加しない", () => {
     const pool = new BulletPool(1);
     expect(pool.add(0, 0, 0, 0, style)).toBe(true);
