@@ -119,6 +119,50 @@ export const flowerRings = (frames: number): Pattern =>
     }
   };
 
+/**
+ * flowerRings の密度を上げた版。弾数を増やして間隔を詰める。
+ * 弾の隙間が狭くなりすぎないよう、弾は少し小さくする。
+ */
+export const denseScatteredRings = (frames: number): Pattern =>
+  function* (ctx) {
+    const n = 48;
+    const interval = 18;
+    for (let f = 0; f < frames; f += interval) {
+      const cx = ctx.boss.x + ctx.rng.range(-100, 100);
+      const cy = ctx.boss.y + ctx.rng.range(-40, 60);
+      const offset = ctx.rng.next() * TAU;
+      for (let i = 0; i < n; i++) {
+        ctx.fire(cx, cy, offset + (i / n) * TAU, 1.8, { radius: 3, color: 0xffdd77 });
+      }
+      yield interval;
+    }
+  };
+
+/**
+ * flowerRings のリングを、ボスの左右 2 箇所から同時に撃つ。
+ * 2 つのリングが交差して隙間が複雑になる。同じ場所に重ならないよう、左右に分けて位置を選ぶ。
+ */
+export const twinScatteredRings = (frames: number): Pattern =>
+  function* (ctx) {
+    const n = 36;
+    const interval = 24;
+    const sides = [
+      { minX: -150, maxX: -40, color: 0xffcc55 },
+      { minX: 40, maxX: 150, color: 0x88ddff },
+    ];
+    for (let f = 0; f < frames; f += interval) {
+      for (const side of sides) {
+        const cx = ctx.boss.x + ctx.rng.range(side.minX, side.maxX);
+        const cy = ctx.boss.y + ctx.rng.range(-40, 60);
+        const offset = ctx.rng.next() * TAU;
+        for (let i = 0; i < n; i++) {
+          ctx.fire(cx, cy, offset + (i / n) * TAU, 1.8, { radius: 4, color: side.color });
+        }
+      }
+      yield interval;
+    }
+  };
+
 /** flowerRings と同じリングを撃ち、1 秒後に各弾の向きを自機狙いに変える */
 export const delayedAimScatteredRings = (frames: number): Pattern =>
   function* (ctx) {
@@ -320,6 +364,7 @@ const difficultyGroups = (motion: BossMotion): DifficultyGroup[] => [
     id: "normal",
     steps: [
       { id: "doubleScatteredRings", pattern: doubleScatteredRings(600), rest: 60 },
+      { id: "denseScatteredRings", pattern: denseScatteredRings(600), rest: 60 },
       { id: "delayedAimScatteredRings", pattern: delayedAimScatteredRings(600), rest: 60 },
       { id: "burstingRings", pattern: burstingRings(600), rest: 60 },
       { id: "sideSpiralEnemies", pattern: sideSpiralEnemies(600), rest: 60 },
@@ -330,6 +375,7 @@ const difficultyGroups = (motion: BossMotion): DifficultyGroup[] => [
           aimedFan(480),
           flowerRings(600),
           doubleScatteredRings(600),
+          denseScatteredRings(600),
           delayedAimScatteredRings(600),
           burstingRings(600),
           sideSpiralEnemies(600),
@@ -345,6 +391,7 @@ const difficultyGroups = (motion: BossMotion): DifficultyGroup[] => [
       { id: "evenFanStreamWithAimedShot", pattern: evenFanStreamWithAimedShot(600), rest: 60 },
       { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
       { id: "wallBounceRings", pattern: wallBounceRings(600), rest: 90 },
+      { id: "twinScatteredRings", pattern: twinScatteredRings(600), rest: 90 },
       {
         id: "evenFanRandomMix",
         pattern: togetherRandomPick(evenFanStreamWithAimedShot(600), [
