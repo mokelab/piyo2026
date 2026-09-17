@@ -77,6 +77,49 @@ export const doubleScatteredRings = (frames: number): Pattern =>
     }
   };
 
+/** ボスから左右に子機を撃ち出し、止まった位置から渦巻きをばらまかせる */
+export const sideSpiralEnemies = (frames: number): Pattern =>
+  function* (ctx) {
+    const interval = 150;
+    for (let f = 0; f < frames; f += interval) {
+      ctx.spawn(spiralEnemy(-1));
+      ctx.spawn(spiralEnemy(1));
+      yield interval;
+    }
+  };
+
+/** 横に飛び出して止まり、渦巻きを撃ってから上へ去る子機。左右で回転の向きが逆になる。 */
+const spiralEnemy = (dir: -1 | 1): Pattern =>
+  function* (ctx) {
+    const enemy = ctx.spawnEnemy(ctx.boss.x, ctx.boss.y);
+    const startX = enemy.x;
+    const startY = enemy.y;
+    const targetX = Math.min(Math.max(startX + dir * 150, 40), ctx.width - 40);
+    const targetY = startY + 50;
+    const moveFrames = 30;
+    for (let t = 1; t <= moveFrames; t++) {
+      const k = 1 - (1 - t / moveFrames) ** 3;
+      enemy.x = startX + (targetX - startX) * k;
+      enemy.y = startY + (targetY - startY) * k;
+      yield 1;
+    }
+
+    const arms = 4;
+    for (let t = 0; t < 120; t += 4) {
+      const base = dir * t * 0.05;
+      for (let a = 0; a < arms; a++) {
+        ctx.fire(enemy.x, enemy.y, base + (a / arms) * TAU, 1.8, { radius: 4, color: 0xff88cc });
+      }
+      yield 4;
+    }
+
+    while (enemy.y > -30) {
+      enemy.y -= 3;
+      yield 1;
+    }
+    enemy.alive = false;
+  };
+
 /** 上から降るばらまき弾 */
 export const rain = (frames: number): Pattern =>
   function* (ctx) {
@@ -106,6 +149,8 @@ export const demoStage: Pattern = function* (ctx) {
     yield* flowerRings(600)(ctx);
     yield 60;
     yield* doubleScatteredRings(600)(ctx);
+    yield 60;
+    yield* sideSpiralEnemies(600)(ctx);
     yield 60;
     yield* together(spiral(600, 3), rain(600))(ctx);
     yield 90;

@@ -47,6 +47,21 @@ describe("World", () => {
     expect(run()).toEqual(run());
   });
 
+  it("alive を false にした敵は次のフレームで消える", () => {
+    const world = new World({ width: 100, height: 100, seed: 1 });
+    const pattern: Pattern = function* (ctx) {
+      const enemy = ctx.spawnEnemy(10, 20);
+      yield 2;
+      enemy.alive = false;
+    };
+    world.spawn(pattern);
+    world.step({ dx: 0, dy: 0 });
+    expect(world.enemies).toEqual([{ x: 10, y: 20, alive: true }]);
+    world.step({ dx: 0, dy: 0 });
+    world.step({ dx: 0, dy: 0 });
+    expect(world.enemies).toEqual([]);
+  });
+
   it("移動指示は長さ 1 に正規化される", () => {
     const world = new World({ width: 480, height: 640, seed: 1, playerSpeed: 3 });
     const { x, y } = world.player;

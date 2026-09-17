@@ -1,5 +1,5 @@
 import { BulletPool, type BulletsView } from "./bullets";
-import { PatternRunner, type Pattern, type PatternContext } from "./pattern";
+import { PatternRunner, type EnemyHandle, type Pattern, type PatternContext } from "./pattern";
 import { Rng } from "./rng";
 
 export interface PlayerView {
@@ -16,6 +16,11 @@ export interface BossView {
   readonly y: number;
 }
 
+export interface EnemyView {
+  readonly x: number;
+  readonly y: number;
+}
+
 /** AI と描画に公開する、読み取り専用のワールド状態。 */
 export interface WorldView {
   readonly width: number;
@@ -23,6 +28,7 @@ export interface WorldView {
   readonly frame: number;
   readonly player: PlayerView;
   readonly boss: BossView;
+  readonly enemies: readonly EnemyView[];
   readonly bullets: BulletsView;
 }
 
@@ -57,6 +63,7 @@ export class World implements WorldView {
   readonly bullets: BulletPool;
   readonly player: { x: number; y: number; radius: number; speed: number };
   readonly boss: { x: number; y: number };
+  readonly enemies: EnemyHandle[] = [];
   readonly stats: WorldStats = { hits: 0, invincible: 0 };
   frame = 0;
 
@@ -86,6 +93,11 @@ export class World implements WorldView {
       fire: (x, y, angle, speed, style) => {
         this.bullets.add(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, style);
       },
+      spawnEnemy: (x, y) => {
+        const enemy = { x, y, alive: true };
+        this.enemies.push(enemy);
+        return enemy;
+      },
       spawn: (pattern) => this.runner.spawn(pattern),
     };
     this.runner = new PatternRunner(ctx);
@@ -95,13 +107,22 @@ export class World implements WorldView {
     this.runner.spawn(pattern);
   }
 
-  /** 1 フレーム進める。順序: パターン発射 → 弾移動 → 自機移動 → 当たり判定 */
+  /** 1 フレーム進める。順序: パターン発射 → 敵の片付け → 弾移動 → 自機移動 → 当たり判定 */
   step(intent: MoveIntent): void {
     this.runner.step();
+    this.removeDeadEnemies();
     this.bullets.step(this.width, this.height, OFFSCREEN_MARGIN);
     this.movePlayer(intent);
     this.checkHit();
     this.frame++;
+  }
+
+  private removeDeadEnemies(): void {
+    let alive = 0;
+    for (const enemy of this.enemies) {
+      if (enemy.alive) this.enemies[alive++] = enemy;
+    }
+    this.enemies.length = alive;
   }
 
   private movePlayer(intent: MoveIntent): void {

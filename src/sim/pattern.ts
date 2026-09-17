@@ -14,6 +14,13 @@ import type { Rng } from "./rng";
  */
 export type Pattern = (ctx: PatternContext) => Generator<number, void, void>;
 
+/** パターンから動かす敵（子機）。x, y を書き換えて動かし、alive を false にすると消える。 */
+export interface EnemyHandle {
+  x: number;
+  y: number;
+  alive: boolean;
+}
+
 export interface PatternContext {
   readonly width: number;
   readonly height: number;
@@ -27,6 +34,8 @@ export interface PatternContext {
   readonly boss: { x: number; y: number };
   /** 角度（ラジアン、0 = 右、π/2 = 下）と速さ（px/frame）で弾を撃つ */
   fire(x: number, y: number, angle: number, speed: number, style: BulletStyle): void;
+  /** 敵を出す。当たり判定は無く、見た目と弾の発射位置として使う。 */
+  spawnEnemy(x: number, y: number): EnemyHandle;
   /** 並行して動くサブパターンを起動する */
   spawn(pattern: Pattern): void;
 }

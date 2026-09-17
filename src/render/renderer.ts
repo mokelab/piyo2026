@@ -7,6 +7,8 @@ import type { WorldView } from "../sim/world";
 const TEXTURE_RADIUS = 16;
 /** ボス画像の表示サイズ（論理 px） */
 const BOSS_SIZE = 96;
+/** 敵（子モケラ）の表示サイズ（論理 px） */
+const ENEMY_SIZE = 40;
 /** ぴよの塗り色。画像は白塗り＋黒線なので tint で白い部分だけ色が付く。 */
 const PLAYER_COLOR = 0xffd83a;
 
@@ -16,6 +18,9 @@ export class Renderer {
   private readonly particles: Particle[] = [];
   private readonly bulletTexture: Texture;
   private readonly boss: Sprite;
+  private readonly bossTexture: Texture;
+  private readonly enemyLayer = new Container();
+  private readonly enemies: Sprite[] = [];
   private readonly player: Container;
   private readonly playerSprite: Sprite;
 
@@ -27,6 +32,7 @@ export class Renderer {
       dynamicProperties: { position: true, vertex: true, color: true },
     });
 
+    this.bossTexture = bossTexture;
     this.boss = new Sprite({ texture: bossTexture, anchor: 0.5 });
     this.boss.scale.set(BOSS_SIZE / bossTexture.width);
 
@@ -40,7 +46,7 @@ export class Renderer {
       .stroke({ width: 1.5, color: 0xff3355 });
     this.player = new Container({ children: [this.playerSprite, hitbox] });
 
-    app.stage.addChild(this.boss, this.bulletLayer, this.player);
+    app.stage.addChild(this.boss, this.enemyLayer, this.bulletLayer, this.player);
   }
 
   static async create(parent: HTMLElement, width: number, height: number): Promise<Renderer> {
@@ -64,8 +70,24 @@ export class Renderer {
   draw(world: WorldView, invincible: boolean): void {
     this.syncBullets(world);
     this.boss.position.set(world.boss.x, world.boss.y);
+    this.syncEnemies(world);
     this.player.position.set(world.player.x, world.player.y);
     this.playerSprite.alpha = invincible && world.frame % 8 < 4 ? 0.3 : 1;
+  }
+
+  private syncEnemies(world: WorldView): void {
+    const { enemies } = world;
+    while (this.enemies.length < enemies.length) {
+      const sprite = new Sprite({ texture: this.bossTexture, anchor: 0.5 });
+      sprite.scale.set(ENEMY_SIZE / this.bossTexture.width);
+      this.enemies.push(sprite);
+      this.enemyLayer.addChild(sprite);
+    }
+    for (let i = 0; i < this.enemies.length; i++) {
+      const sprite = this.enemies[i];
+      sprite.visible = i < enemies.length;
+      if (sprite.visible) sprite.position.set(enemies[i].x, enemies[i].y);
+    }
   }
 
   private syncBullets(world: WorldView): void {
