@@ -90,8 +90,14 @@ export class World implements WorldView {
       playerX: () => this.player.x,
       playerY: () => this.player.y,
       boss: this.boss,
+      bulletSpeedScale: 1,
       fire: (x, y, angle, speed, style, behavior) => {
-        this.bullets.add(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, style, behavior);
+        const scale = ctx.bulletSpeedScale;
+        if (scale !== 1 && behavior?.burst) {
+          behavior = { ...behavior, burst: { ...behavior.burst, speed: behavior.burst.speed * scale } };
+        }
+        const v = speed * scale;
+        this.bullets.add(x, y, Math.cos(angle) * v, Math.sin(angle) * v, style, behavior);
       },
       spawnEnemy: (x, y) => {
         const enemy = { x, y, alive: true };

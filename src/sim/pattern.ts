@@ -32,7 +32,12 @@ export interface PatternContext {
   playerY(): number;
   /** ボスの位置。パターンから書き換えてボスを動かせる。 */
   readonly boss: { x: number; y: number };
-  /** 角度（ラジアン、0 = 右、π/2 = 下）と速さ（px/frame）で弾を撃つ */
+  /**
+   * fire で撃つ弾の速さに掛ける倍率（破裂の子弾の速さにも掛かる）。
+   * ワールド全体で共有しているので、書き換えるとサブパターンや子機の弾にも効く。
+   */
+  bulletSpeedScale: number;
+  /** 角度（ラジアン、0 = 右、π/2 = 下）と速さ（px/frame）で弾を撃つ。速さには bulletSpeedScale が掛かる。 */
   fire(x: number, y: number, angle: number, speed: number, style: BulletStyle, behavior?: BulletBehavior): void;
   /** 敵を出す。当たり判定は無く、見た目と弾の発射位置として使う。 */
   spawnEnemy(x: number, y: number): EnemyHandle;

@@ -25,7 +25,9 @@ npm run deploy     # build して dist を gh-pages ブランチへ push（GitHu
 ## URL パラメータ（動作確認用）
 
 - `?seed=<n>`: 乱数シード。同じシードなら同じ弾幕が再現される
-- `?pattern=<id>`: デモステージをこのパターンから始める（id は `demoSteps` の `id`）
+- `?pattern=<id>`: デモステージをこのパターンから始める（id は `difficultyGroups` 内の各 step の `id`。そのパターンを含むグループから始まる）
+- `?group=<id>`: デモステージをこの難易度グループから始める（`easy` / `normal` / `hard`）
+- `?loop=<n>`: デモステージを n 周目（1 始まり）から始める。周を重ねるほど弾が速い
 - `?ai=<id>`: 回避 AI を選ぶ
 - クエリ無しで開くとタイトル画面から始まり、Start 後に `seed` が URL に書き込まれる
 
@@ -50,7 +52,8 @@ npm run deploy     # build して dist を gh-pages ブランチへ push（GitHu
 - パターンは `spiral(frames)` のように長さなどを引数に取るファクトリとして書く。`yield*` で直列、`together` / `ctx.spawn` で並列に組み合わせる。
 - ボスの位置は `ctx.boss` を書き換えて動かす。`bossSway` が常時揺らしているので、パターンからボスを動かすときは `BossMotion.swaying` を false にして止める（`centerRandomPick` 参照）。
 - 子機は `ctx.spawnEnemy` で出し、`x, y` を書き換えて動かし、`alive = false` で消す（当たり判定は無い）。
-- **新しいパターンを追加したら**、`demoSteps` に `{ id, pattern, rest }` を追加し（これで `?pattern=` から選べる）、必要なら `centerRandomPick` の候補にも加える。`docs/patterns.md` の表にも動きを追記する。命名方針（「狙い方 + 形 + 撃ち方」）と未決事項もこのドキュメントにある。
+- デモステージは難易度グループ（`difficultyGroups`）順に進む。各グループから `CLEARS_PER_GROUP` 個を `ctx.rng` で重複なしに選んで流し切ると次のグループへ進み、最後の後は最初に戻る。周を重ねるごとに `ctx.bulletSpeedScale`（`fire` の速さと破裂の子弾の速さに掛かる倍率）を上げる。進み具合は `StageProgress` に書き込まれ、HUD に出る。
+- **新しいパターンを追加したら**、難しさに合う `difficultyGroups` のグループの `steps` に `{ id, pattern, rest }` を追加し（これで `?pattern=` から選べる）、必要なら `centerRandomPick` の候補にも加える。`docs/patterns.md` の表にも動きを追記する。命名方針（「狙い方 + 形 + 撃ち方」）と未決事項もこのドキュメントにある。
 
 ### 回避 AI（`src/ai`）
 

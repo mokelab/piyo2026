@@ -65,6 +65,16 @@ export const centerRandomPick = (motion: BossMotion, candidates: readonly Patter
     motion.swaying = true;
   };
 
+/**
+ * base と、candidates からランダムに 1 つ選んだパターンを同時に撃つ。
+ * 選んだ方は並行タスクとして走り、base が終わっても止まらないので、長さは base と揃えておく。
+ */
+export const togetherRandomPick = (base: Pattern, candidates: readonly Pattern[]): Pattern =>
+  function* (ctx) {
+    const picked = candidates[Math.floor(ctx.rng.next() * candidates.length)];
+    yield* together(base, picked)(ctx);
+  };
+
 /** 回転しながら複数の腕で撃ち続ける渦巻き */
 export const spiral = (frames: number, arms = 5): Pattern =>
   function* (ctx) {
@@ -162,6 +172,56 @@ export const doubleScatteredRings = (frames: number): Pattern =>
     }
   };
 
+/**
+ * ボスから全方位リングを撃ち、各弾が左右の壁で 1 回だけ跳ね返る。
+ * 跳ね返った弾が後から撃ったリングと交差して網目になり、画面の端に逃げても戻ってくる弾に挟まれる。
+ */
+export const wallBounceRings = (frames: number): Pattern =>
+  function* (ctx) {
+    const n = 36;
+    const interval = 24;
+    for (let f = 0; f < frames; f += interval) {
+      const offset = ctx.rng.next() * TAU;
+      for (let i = 0; i < n; i++) {
+        ctx.fire(ctx.boss.x, ctx.boss.y, offset + (i / n) * TAU, 1.5, { radius: 4, color: 0x66ffdd }, { wallBounces: 1 });
+      }
+      yield interval;
+    }
+  };
+
+/**
+ * 自機狙いの偶数弾（自機が隙間に来る扇）を密に撃ち続けて横移動を封じつつ、
+ * 大きな自機狙い弾を一定間隔で混ぜて、狭い隙間の中で小さく避けさせる。
+ */
+export const evenFanStreamWithAimedShot = (frames: number): Pattern =>
+  function* (ctx) {
+    ctx.spawn(aimedBigShots(frames));
+    const n = 6;
+    const spacing = 0.28;
+    const interval = 5;
+    for (let f = 0; f < frames; f += interval) {
+      const aim = Math.atan2(ctx.playerY() - ctx.boss.y, ctx.playerX() - ctx.boss.x);
+      for (let i = 0; i < n; i++) {
+        // 偶数弾なので、真ん中の 2 発の間に自機の方向が来る
+        const angle = aim + (i - (n - 1) / 2) * spacing;
+        ctx.fire(ctx.boss.x, ctx.boss.y, angle, 2.6, { radius: 4, color: 0x77ddff });
+      }
+      yield interval;
+    }
+  };
+
+/** 大きな自機狙い弾を 1 秒に 1 発撃ち続ける */
+const aimedBigShots = (frames: number): Pattern =>
+  function* (ctx) {
+    const interval = 60;
+    yield 30;
+    for (let f = 30; f < frames; f += interval) {
+      const aim = Math.atan2(ctx.playerY() - ctx.boss.y, ctx.playerX() - ctx.boss.x);
+      ctx.fire(ctx.boss.x, ctx.boss.y, aim, 3.4, { radius: 12, color: 0xff5577 });
+      yield interval;
+    }
+  };
+
 /** ボスから左右に子機を撃ち出し、止まった位置から渦巻きをばらまかせる */
 export const sideSpiralEnemies = (frames: number): Pattern =>
   function* (ctx) {
@@ -223,48 +283,161 @@ export const together = (...patterns: Pattern[]): Pattern =>
     yield* patterns[0](ctx);
   };
 
-/** サンプルステージで順番に流すパターン。id は URL の ?pattern= で指定する。 */
-const demoSteps = (motion: BossMotion): { id: string; pattern: Pattern; rest: number }[] => [
-  { id: "spiral", pattern: spiral(600), rest: 60 },
-  { id: "aimedFan", pattern: aimedFan(480), rest: 60 },
-  { id: "flowerRings", pattern: flowerRings(600), rest: 60 },
-  { id: "doubleScatteredRings", pattern: doubleScatteredRings(600), rest: 60 },
-  { id: "delayedAimScatteredRings", pattern: delayedAimScatteredRings(600), rest: 60 },
-  { id: "burstingRings", pattern: burstingRings(600), rest: 60 },
-  { id: "sideSpiralEnemies", pattern: sideSpiralEnemies(600), rest: 60 },
-  { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
+/** ステージで流すパターン 1 つ分。id は URL の ?pattern= で指定する。 */
+interface StageStep {
+  id: string;
+  pattern: Pattern;
+  rest: number;
+}
+
+/** 難易度グループ。グループ内のパターンを CLEARS_PER_GROUP 個クリアすると次のグループへ進む。 */
+interface DifficultyGroup {
+  id: string;
+  steps: StageStep[];
+}
+
+/** 次のグループへ進むのに必要なクリア数。被弾しても流し切ればクリアとする。 */
+export const CLEARS_PER_GROUP = 3;
+
+/** 1 周ごとに弾速の倍率に足す量と、倍率の上限 */
+const SPEED_SCALE_PER_LOOP = 0.15;
+const MAX_SPEED_SCALE = 1.6;
+
+/** loop 周目（0 始まり）の弾速の倍率 */
+export const speedScaleForLoop = (loop: number): number => Math.min(1 + SPEED_SCALE_PER_LOOP * loop, MAX_SPEED_SCALE);
+
+/** 難易度グループ。やさしい順に並べる。id は URL の ?group= で指定する。 */
+const difficultyGroups = (motion: BossMotion): DifficultyGroup[] => [
   {
-    id: "centerRandomPick",
-    pattern: centerRandomPick(motion, [
-      spiral(600),
-      aimedFan(480),
-      flowerRings(600),
-      doubleScatteredRings(600),
-      delayedAimScatteredRings(600),
-      burstingRings(600),
-      sideSpiralEnemies(600),
-    ]),
-    rest: 60,
+    id: "easy",
+    steps: [
+      { id: "spiral", pattern: spiral(600), rest: 60 },
+      { id: "aimedFan", pattern: aimedFan(480), rest: 60 },
+      { id: "flowerRings", pattern: flowerRings(600), rest: 60 },
+    ],
+  },
+  {
+    id: "normal",
+    steps: [
+      { id: "doubleScatteredRings", pattern: doubleScatteredRings(600), rest: 60 },
+      { id: "delayedAimScatteredRings", pattern: delayedAimScatteredRings(600), rest: 60 },
+      { id: "burstingRings", pattern: burstingRings(600), rest: 60 },
+      { id: "sideSpiralEnemies", pattern: sideSpiralEnemies(600), rest: 60 },
+      {
+        id: "centerRandomPick",
+        pattern: centerRandomPick(motion, [
+          spiral(600),
+          aimedFan(480),
+          flowerRings(600),
+          doubleScatteredRings(600),
+          delayedAimScatteredRings(600),
+          burstingRings(600),
+          sideSpiralEnemies(600),
+          evenFanStreamWithAimedShot(600),
+        ]),
+        rest: 60,
+      },
+    ],
+  },
+  {
+    id: "hard",
+    steps: [
+      { id: "evenFanStreamWithAimedShot", pattern: evenFanStreamWithAimedShot(600), rest: 60 },
+      { id: "spiralRain", pattern: together(spiral(600, 3), rain(600)), rest: 90 },
+      { id: "wallBounceRings", pattern: wallBounceRings(600), rest: 90 },
+      {
+        id: "evenFanRandomMix",
+        pattern: togetherRandomPick(evenFanStreamWithAimedShot(600), [
+          spiral(600, 3),
+          flowerRings(600),
+          burstingRings(600),
+          sideSpiralEnemies(600),
+          rain(600),
+        ]),
+        rest: 90,
+      },
+    ],
   },
 ];
 
-export const demoPatternIds: readonly string[] = demoSteps({ swaying: true }).map((step) => step.id);
+const groupsForIds = difficultyGroups({ swaying: true });
+export const difficultyGroupIds: readonly string[] = groupsForIds.map((group) => group.id);
+export const demoPatternIds: readonly string[] = groupsForIds.flatMap((group) => group.steps.map((step) => step.id));
+
+/** ステージの進み具合。ステージが書き換え、HUD などから読む。 */
+export interface StageProgress {
+  /** 何周目か（0 始まり） */
+  loop: number;
+  /** 今の周の弾速の倍率 */
+  speedScale: number;
+  /** 今のグループの id */
+  groupId: string;
+  /** 今のグループで何個目のパターンか（0 始まり） */
+  index: number;
+  /** 今のグループで撃つパターンの数 */
+  total: number;
+  /** 今撃っているパターンの id */
+  patternId: string;
+}
+
+export interface StageStart {
+  /** この周（0 始まり）から始める */
+  loop?: number | null;
+  /** このグループから始める */
+  group?: string | null;
+  /** このパターンを含むグループから、このパターンを最初に撃って始める。group より優先する。 */
+  pattern?: string | null;
+}
+
+/** steps から count 個を重複なしで選ぶ。first を渡すとそれを先頭にする。 */
+function pickSteps(ctx: PatternContext, steps: readonly StageStep[], count: number, first?: StageStep): StageStep[] {
+  const rest = steps.filter((step) => step !== first);
+  // Fisher–Yates（シード再現のため ctx.rng を使う）
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(ctx.rng.next() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  const picked = first ? [first, ...rest] : rest;
+  return picked.slice(0, Math.min(count, steps.length));
+}
 
 /**
- * サンプルステージ: ボスを揺らしつつ、パターンを順番に無限ループ。
- * startId を渡すとそのパターンから始める（見つからなければ先頭から）。
+ * サンプルステージ: ボスを揺らしつつ、難易度グループを順に進む。
+ * 各グループからパターンを重複なしで CLEARS_PER_GROUP 個選んで撃ち、最後のグループの後は次の周として最初に戻る。
+ * 周を重ねるごとに弾速を上げる（speedScaleForLoop）。
  */
-export const demoStageFrom = (startId?: string | null): Pattern =>
+export const demoStageFrom = (start: StageStart = {}, progress?: StageProgress): Pattern =>
   function* (ctx) {
     const motion: BossMotion = { swaying: true };
     ctx.spawn(bossSway(motion));
-    const steps = demoSteps(motion);
-    let i = Math.max(0, steps.findIndex((step) => step.id === startId));
-    for (;;) {
-      const step = steps[i];
-      yield* step.pattern(ctx);
-      yield step.rest;
-      i = (i + 1) % steps.length;
+    const groups = difficultyGroups(motion);
+
+    let first: StageStep | undefined;
+    let g = Math.max(0, groups.findIndex((group) => group.id === start.group));
+    if (start.pattern != null) {
+      const found = groups.findIndex((group) => group.steps.some((step) => step.id === start.pattern));
+      if (found >= 0) {
+        g = found;
+        first = groups[found].steps.find((step) => step.id === start.pattern);
+      }
+    }
+
+    for (let loop = Math.max(0, Math.floor(start.loop ?? 0)); ; loop++) {
+      const speedScale = speedScaleForLoop(loop);
+      ctx.bulletSpeedScale = speedScale;
+      for (; g < groups.length; g++) {
+        const group = groups[g];
+        const picked = pickSteps(ctx, group.steps, CLEARS_PER_GROUP, first);
+        first = undefined;
+        for (let i = 0; i < picked.length; i++) {
+          if (progress) {
+            Object.assign(progress, { loop, speedScale, groupId: group.id, index: i, total: picked.length, patternId: picked[i].id });
+          }
+          yield* picked[i].pattern(ctx);
+          yield picked[i].rest;
+        }
+      }
+      g = 0;
     }
   };
 

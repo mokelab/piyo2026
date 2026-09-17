@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { BulletPool } from "./bullets";
 import type { Pattern } from "./pattern";
-import { type BossMotion, bossSway, centerRandomPick, demoStage, demoStageFrom } from "./patterns/basic";
+import {
+  type BossMotion,
+  bossSway,
+  CLEARS_PER_GROUP,
+  centerRandomPick,
+  demoStage,
+  demoStageFrom,
+  speedScaleForLoop,
+  type StageProgress,
+} from "./patterns/basic";
 import { World } from "./world";
 
 const style = { radius: 4, color: 0xffffff };
@@ -45,6 +54,21 @@ describe("BulletPool", () => {
     // 子弾は破裂しない
     for (let t = 0; t < 5; t++) pool.step(100, 100, 5, 0, 0);
     expect(pool.count).toBe(4);
+  });
+
+  it("wallBounces の回数だけ左右の壁で跳ね返り、使い切ったら壁の外へ出て消える", () => {
+    const pool = new BulletPool(8);
+    pool.add(98, 50, 3, 1, style, { wallBounces: 1 });
+    // x = 101 は壁の外なので、x = 100 で折り返して 99 に置く
+    pool.step(100, 100, 5, 0, 0);
+    expect([pool.x[0], pool.y[0], pool.vx[0], pool.vy[0]]).toEqual([99, 51, -3, 1]);
+    for (let t = 0; t < 33; t++) pool.step(100, 100, 5, 0, 0);
+    expect(pool.x[0]).toBe(0);
+    // 2 回目は跳ね返らず、margin の外に出たら消える
+    pool.step(100, 100, 5, 0, 0);
+    expect([pool.count, pool.x[0]]).toEqual([1, -3]);
+    pool.step(100, 100, 5, 0, 0);
+    expect(pool.count).toBe(0);
   });
 
   it("容量を超えたら追加しない", () => {
@@ -95,11 +119,80 @@ describe("World", () => {
 
   it("demoStageFrom で指定したパターンから始まる", () => {
     const world = new World({ width: 480, height: 640, seed: 1 });
-    world.spawn(demoStageFrom("sideSpiralEnemies"));
+    world.spawn(demoStageFrom({ pattern: "sideSpiralEnemies" }));
     // spawn したサブパターンは次のフレームから動く
     world.step({ dx: 0, dy: 0 });
     world.step({ dx: 0, dy: 0 });
     expect(world.enemies.length).toBe(2);
+  });
+
+  it("難易度グループのパターンを CLEARS_PER_GROUP 個流し切ると次のグループへ進み、最後の後は最初に戻る", () => {
+    const world = new World({ width: 480, height: 640, seed: 7 });
+    const progress: StageProgress = { loop: 0, speedScale: 1, groupId: "", index: 0, total: 0, patternId: "" };
+    world.spawn(demoStageFrom({}, progress));
+    const seen: string[] = [];
+    const seenIds = new Map<string, Set<string>>();
+    for (let i = 0; i < 60 * 60 * 6; i++) {
+      world.step({ dx: 0, dy: 0 });
+      const key = `${progress.loop}:${progress.groupId}`;
+      if (seen[seen.length - 1] !== key) seen.push(key);
+      if (!seenIds.has(key)) seenIds.set(key, new Set());
+      seenIds.get(key)!.add(progress.patternId);
+    }
+    expect(seen.slice(0, 4)).toEqual(["0:easy", "0:normal", "0:hard", "1:easy"]);
+    // 同じグループ内では重複なしで CLEARS_PER_GROUP 個撃つ
+    expect(seenIds.get("0:normal")!.size).toBe(CLEARS_PER_GROUP);
+  });
+
+  it("?pattern= で指定したパターンを含むグループから、そのパターンを最初に撃つ", () => {
+    const world = new World({ width: 480, height: 640, seed: 1 });
+    const progress: StageProgress = { loop: 0, speedScale: 1, groupId: "", index: 0, total: 0, patternId: "" };
+    world.spawn(demoStageFrom({ group: "easy", pattern: "burstingRings" }, progress));
+    world.step({ dx: 0, dy: 0 });
+    expect(progress).toEqual({ loop: 0, speedScale: 1, groupId: "normal", index: 0, total: CLEARS_PER_GROUP, patternId: "burstingRings" });
+  });
+
+  it("周を重ねるごとに弾速の倍率が上がり、上限で止まる", () => {
+    expect(speedScaleForLoop(0)).toBe(1);
+    expect(speedScaleForLoop(1)).toBeCloseTo(1.15);
+    expect(speedScaleForLoop(100)).toBe(1.6);
+
+    const world = new World({ width: 480, height: 640, seed: 1 });
+    const progress: StageProgress = { loop: 0, speedScale: 1, groupId: "", index: 0, total: 0, patternId: "" };
+    world.spawn(demoStageFrom({ loop: 1 }, progress));
+    // ボスの揺れ（bossSway）と同時に最初のパターンが撃ち始める
+    world.step({ dx: 0, dy: 0 });
+    expect(progress.speedScale).toBeCloseTo(1.15);
+    const { vx, vy } = world.bullets;
+    const speeds = Array.from({ length: world.bullets.count }, (_, i) => Math.hypot(vx[i], vy[i]));
+    // easy の各パターンの最初の弾速（spiral 2.2 / 1.6、aimedFan 3.2、flowerRings 1.8）が 1.15 倍になっている
+    expect(speeds.length).toBeGreaterThan(0);
+    for (const speed of speeds) {
+      expect([2.2, 1.6, 3.2, 1.8].some((base) => Math.abs(speed - base * 1.15) < 1e-4)).toBe(true);
+    }
+  });
+
+  it("bulletSpeedScale は破裂の子弾の速さにも掛かる", () => {
+    const world = new World({ width: 480, height: 640, seed: 1 });
+    const pattern: Pattern = function* (ctx) {
+      ctx.bulletSpeedScale = 2;
+      ctx.fire(240, 320, 0, 1, style, { burst: { after: 2, count: 4, speed: 0.5, style } });
+      yield 1;
+    };
+    world.spawn(pattern);
+    world.step({ dx: 0, dy: 0 });
+    expect(world.bullets.vx[0]).toBeCloseTo(2);
+    world.step({ dx: 0, dy: 0 });
+    expect(world.bullets.count).toBe(4);
+    expect(Math.hypot(world.bullets.vx[0], world.bullets.vy[0])).toBeCloseTo(1);
+  });
+
+  it("?group= で指定したグループから始まる", () => {
+    const world = new World({ width: 480, height: 640, seed: 1 });
+    const progress: StageProgress = { loop: 0, speedScale: 1, groupId: "", index: 0, total: 0, patternId: "" };
+    world.spawn(demoStageFrom({ group: "hard" }, progress));
+    world.step({ dx: 0, dy: 0 });
+    expect(progress.groupId).toBe("hard");
   });
 
   it("centerRandomPick はボスを中央へ動かして撃ち、元の y へ戻って揺れを再開する", () => {
